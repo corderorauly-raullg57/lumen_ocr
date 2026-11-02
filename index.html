@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMEN OCR — Estudio de extracción de texto</title>
+<meta name="description" content="LUMEN OCR: extrae texto de fotos y PDF directamente en tu navegador. Edita, corrige y exporta a TXT, Word, HTML o PDF.">
+<meta name="theme-color" content="#0e1013">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2315181d'/%3E%3Cpath d='M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4' stroke='%23ffb224' stroke-width='2' fill='none'/%3E%3Crect x='7' y='11' width='10' height='2' fill='%23ffb224'/%3E%3C/svg%3E">
+<script>
+/* aplica el tema antes de pintar para evitar parpadeos */
+try{var t=JSON.parse(localStorage.getItem('lumen:theme'));if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}
+</script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="lib/icons/icon-192.png">
+<style>
+/* ════════════════════════ FUENTES (incluidas, sin internet) ════════════════════════ */
+@font-face{font-family:'Manrope';src:url(lib/fonts/manrope.woff) format('woff');font-weight:200 800;font-display:swap}
+@font-face{font-family:'Fraunces';src:url(lib/fonts/fraunces.woff) format('woff');font-weight:100 900;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url(lib/fonts/jetbrains-mono.woff) format('woff');font-weight:100 800;font-display:swap}
+/* ════════════════════════ TOKENS ════════════════════════ */
+:root{
+  --font-ui:'Manrope','Segoe UI Variable','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+  --font-disp:'Fraunces',Georgia,'Times New Roman',serif;
+  --font-doc:Cambria,Georgia,'Times New Roman',serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --r:14px; --r-sm:9px; --r-xs:6px;
+}
+:root,[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e1013; --glow:rgba(255,170,40,.075); --glow2:rgba(80,140,255,.05); --grid:rgba(255,255,255,.026);
+  --panel:#15181d; --panel-2:#1b1f26; --panel-3:#232832; --line:#262b34; --line-2:#343b48;
+  --text:#eceef2; --text-2:#a7aebb; --text-3:#6e7583;
+  --accent:#ffb224; --accent-2:#ff8a1f; --accent-ink:#1b1203; --accent-soft:rgba(255,178,36,.12); --accent-line:rgba(255,178,36,.42);
+  --ok:#3dd68c; --ok-soft:rgba(61,214,140,.12); --warn:#ffb224; --warn-soft:rgba(255,178,36,.13);
+  --err:#ff6a5c; --err-soft:rgba(255,106,92,.13); --info:#6fb7ff;
+  --desk:#0a0c0f; --paper:#fbfaf7; --paper-ink:#1d1f24; --paper-line:#ebe7de;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 12px 32px rgba(0,0,0,.35);
+  --shadow-lg:0 24px 60px rgba(0,0,0,.55);
+}
+[data-theme="light"]{
+  color-scheme:light;
+  --bg:#eef0f3; --glow:rgba(255,160,20,.11); --glow2:rgba(60,120,255,.06); --grid:rgba(20,30,50,.045);
+  --panel:#ffffff; --panel-2:#f6f7f9; --panel-3:#eceff3; --line:#e1e4ea; --line-2:#cbd0d9;
+  --text:#13161b; --text-2:#4a515d; --text-3:#7e8593;
+  --accent:#f29a00; --accent-2:#e07800; --accent-ink:#1b1203; --accent-soft:rgba(242,154,0,.12); --accent-line:rgba(242,154,0,.5);
+  --ok:#12945a; --ok-soft:rgba(18,148,90,.1); --warn:#c27a00; --warn-soft:rgba(242,154,0,.13);
+  --err:#d6412f; --err-soft:rgba(214,65,47,.1); --info:#2a78d6;
+  --desk:#dde1e7; --paper:#ffffff; --paper-ink:#1d1f24; --paper-line:#ece9e2;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.07);
+  --shadow-lg:0 24px 60px rgba(16,24,40,.22);
+}
+
+/* ════════════════════════ BASE ════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none !important}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-ui);font-size:14px;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(1000px 520px at 85% -10%,var(--glow),transparent 62%),
+    radial-gradient(900px 600px at -10% 110%,var(--glow2),transparent 60%),
+    repeating-linear-gradient(0deg,transparent 0 31px,var(--grid) 31px 32px),
+    repeating-linear-gradient(90deg,transparent 0 31px,var(--grid) 31px 32px),
+    var(--bg);
+  background-attachment:fixed;
+}
+::selection{background:var(--accent);color:var(--accent-ink)}
+button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+svg{flex:none}
+.muted{color:var(--text-3)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ════════════════════════ BARRA SUPERIOR ════════════════════════ */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:12px 24px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{position:relative;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(145deg,var(--panel-3),var(--panel));border:1px solid var(--line-2)}
+.logo svg{width:24px;height:24px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:square}
+.logo::after{content:"";position:absolute;left:4px;right:4px;height:2px;top:0;background:var(--accent);
+  box-shadow:0 0 10px var(--accent);animation:logoscan 3.2s ease-in-out infinite;opacity:.85}
+@keyframes logoscan{0%,100%{top:6px}50%{top:32px}}
+.brand-t strong{display:block;font-family:var(--font-disp);font-weight:700;font-size:21px;line-height:1;letter-spacing:.01em}
+.brand-t strong em{font-style:normal;color:var(--accent)}
+.brand-t small{display:block;margin-top:4px;font-size:10.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3)}
+.top-mid{flex:1;display:flex;justify-content:center;min-width:0}
+.top-right{display:flex;align-items:center;gap:8px}
+
+.chip{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:99px;font-size:12.5px;font-weight:600;
+  background:var(--panel-2);border:1px solid var(--line);color:var(--text-2);white-space:nowrap;max-width:100%}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--text-3);flex:none}
+.chip[data-state="loading"] .dot,.chip[data-state="busy"] .dot{background:var(--accent);box-shadow:0 0 0 0 var(--accent-line);animation:ping 1.3s ease-out infinite}
+.chip[data-state="ready"] .dot{background:var(--ok)}
+.chip[data-state="error"] .dot{background:var(--err)}
+.chip[data-state="error"]{border-color:var(--err-soft);color:var(--err)}
+.chip .chip-btn{border:none;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;margin-left:2px}
+@keyframes ping{0%{box-shadow:0 0 0 0 var(--accent-line)}100%{box-shadow:0 0 0 7px transparent}}
+.net{font-size:11.5px;padding:6px 11px}
+.net[data-on="0"] .dot{background:var(--err)}
+.net[data-on="1"] .dot{background:var(--ok)}
+
+.icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--text-2);
+  display:grid;place-items:center;transition:all .15s}
+.icon-btn:hover{color:var(--text);border-color:var(--line-2);background:var(--panel-3)}
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ════════════════════════ DISPOSICIÓN ════════════════════════ */
+.app{display:grid;grid-template-columns:372px minmax(0,1fr);gap:18px;padding:18px 24px;max-width:1700px;margin:0 auto;align-items:start}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3)}
+.card-h .eyebrow{flex:1}
+
+/* ════════════════════════ BOTONES ════════════════════════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:var(--r-sm);
+  font-size:13px;font-weight:700;border:1px solid var(--line-2);background:var(--panel-2);color:var(--text);
+  transition:transform .12s,background .15s,border-color .15s,box-shadow .15s;white-space:nowrap}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.btn:hover{background:var(--panel-3);border-color:var(--text-3)}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-primary:hover{background:var(--accent-2);border-color:var(--accent-2)}
+.btn-danger{background:var(--err-soft);border-color:transparent;color:var(--err)}
+.btn-danger:hover{background:var(--err);color:#fff;border-color:var(--err)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--text-2)}
+.btn-ghost:hover{background:var(--panel-2);border-color:var(--line);color:var(--text)}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:7px}
+.btn[disabled],.mini[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+
+/* ════════════════════════ ZONA DE CARGA ════════════════════════ */
+.drop{position:relative;padding:24px 20px 20px;text-align:center;overflow:hidden;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.drop:hover{border-color:var(--accent-line)}
+.drop .corner{position:absolute;width:18px;height:18px;border:2.5px solid var(--accent);transition:all .25s;opacity:.9}
+.drop .c1{top:12px;left:12px;border-right:0;border-bottom:0;border-radius:6px 0 0 0}
+.drop .c2{top:12px;right:12px;border-left:0;border-bottom:0;border-radius:0 6px 0 0}
+.drop .c3{bottom:12px;left:12px;border-right:0;border-top:0;border-radius:0 0 0 6px}
+.drop .c4{bottom:12px;right:12px;border-left:0;border-top:0;border-radius:0 0 6px 0}
+.drop:hover .corner{width:26px;height:26px}
+.drop::after{content:"";position:absolute;left:10%;right:10%;height:2px;top:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--accent) 35%,var(--accent) 65%,transparent);
+  box-shadow:0 0 16px var(--accent);animation:dropscan 4s ease-in-out infinite;opacity:.7}
+@keyframes dropscan{0%,100%{top:8%}50%{top:92%}}
+.drop-icon{width:56px;height:56px;margin:4px auto 12px;display:grid;place-items:center;border-radius:14px;
+  background:var(--accent-soft);border:1px solid var(--accent-line)}
+.drop-icon svg{width:28px;height:28px;stroke:var(--accent);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.drop h2{font-family:var(--font-disp);font-weight:700;font-size:20px;margin-bottom:5px}
+.drop p{font-size:12.5px;color:var(--text-3);margin-bottom:14px;line-height:1.5}
+.drop p b{color:var(--text-2);font-weight:700}
+.drop-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.hint{margin-top:12px;font-size:11.5px;color:var(--text-3)}
+kbd{font-family:var(--font-mono);font-size:10.5px;background:var(--panel-3);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text-2)}
+
+/* ════════════════════════ AJUSTES ════════════════════════ */
+.settings summary{list-style:none;display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;user-select:none}
+.settings summary::-webkit-details-marker{display:none}
+.settings summary svg{width:16px;height:16px;stroke:var(--text-3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.settings summary .eyebrow{flex:1}
+.settings summary .chev{transition:transform .2s}
+.settings[open] summary .chev{transform:rotate(180deg)}
+.settings[open] summary{border-bottom:1px solid var(--line)}
+.set-body{padding:14px 16px;display:grid;gap:12px}
+.set-row{display:grid;gap:6px}
+.set-row label{font-size:12px;font-weight:700;color:var(--text-2)}
+.select{width:100%;height:38px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--panel-2);
+  padding:0 10px;font-size:13px;font-weight:600;color:var(--text);outline:none}
+.select:focus{border-color:var(--accent)}
+.select option{background:var(--panel);color:var(--text)}
+.sw{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text-2);cursor:pointer;line-height:1.35}
+.sw input{position:absolute;opacity:0;pointer-events:none}
+.sw .track{position:relative;width:34px;height:20px;border-radius:99px;background:var(--panel-3);border:1px solid var(--line-2);flex:none;transition:all .2s}
+.sw .track::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text-3);transition:all .2s}
+.sw input:checked+.track{background:var(--accent);border-color:var(--accent)}
+.sw input:checked+.track::after{left:16px;background:var(--accent-ink)}
+.sw input:focus-visible+.track{outline:2px solid var(--accent);outline-offset:2px}
+.sw small{display:block;color:var(--text-3);font-size:11px}
+.lang-note{font-size:11.5px;color:var(--text-3);line-height:1.45}
+.lang-note b{color:var(--ok);font-weight:700}
+.lang-note.dl b{color:var(--warn)}
+.banner{display:flex;align-items:flex-start;gap:12px;max-width:1700px;margin:14px auto 0;padding:13px 16px;border-radius:12px;
+  background:var(--warn-soft);border:1px solid var(--accent-line);color:var(--text);font-size:13px;line-height:1.5}
+.banner strong{display:block;font-size:14px;margin-bottom:2px}
+.banner-wrap{padding:0 24px}
+.net[data-ready="1"] .dot{background:var(--ok)}
+.net[data-ready="0"] .dot{background:var(--warn)}
+
+/* ════════════════════════ COLA ════════════════════════ */
+.count{font-family:var(--font-mono);font-weight:500;font-size:12px;min-width:26px;height:24px;padding:0 7px;border-radius:7px;
+  display:grid;place-items:center;background:var(--panel-3);color:var(--text-2);border:1px solid var(--line-2)}
+#queue{list-style:none;overflow-y:auto;max-height:380px;padding:10px;display:flex;flex-direction:column;gap:8px}
+#queue:empty::after{content:"La cola está vacía. Suelta una foto o un PDF, o pega una captura con Ctrl+V.";display:block;
+  text-align:center;color:var(--text-3);font-size:12.5px;padding:24px 12px;border:1.5px dashed var(--line-2);border-radius:10px;line-height:1.5}
+.q-item{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:11px;align-items:center;padding:8px;border-radius:11px;
+  background:var(--panel-2);border:1px solid var(--line);animation:rise .25s ease;transition:border-color .2s}
+.q-item.run{border-color:var(--accent-line);background:linear-gradient(90deg,var(--accent-soft),var(--panel-2) 70%)}
+.q-item.error{border-color:var(--err-soft)}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+.q-thumb{position:relative;width:56px;height:56px;border-radius:8px;overflow:hidden;border:1px solid var(--line-2);background:#fff;padding:0;display:block}
+.q-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s}
+.q-thumb:hover img{transform:scale(1.08)}
+.q-thumb .scan{position:absolute;left:0;right:0;height:2px;top:0;background:var(--accent);box-shadow:0 0 10px var(--accent);display:none;animation:tscan 1.1s linear infinite}
+.q-item.run .q-thumb .scan{display:block}
+@keyframes tscan{from{top:0}to{top:100%}}
+.q-name{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.tag{font-size:10.5px;font-weight:700;letter-spacing:.03em;padding:2px 7px;border-radius:99px;border:1px solid var(--line-2);color:var(--text-3);background:var(--panel)}
+.tag.run{color:var(--warn);background:var(--warn-soft);border-color:transparent}
+.tag.pend{color:var(--text-2)}
+.tag.error{color:var(--err);background:var(--err-soft);border-color:transparent}
+.tag.ok,.tag.hi{color:var(--ok);background:var(--ok-soft);border-color:transparent}
+.tag.mid{color:var(--warn);background:var(--warn-soft);border-color:transparent}
+.tag.lo{color:var(--err);background:var(--err-soft);border-color:transparent}
+.q-bar{height:3px;border-radius:99px;background:var(--line);margin-top:7px;overflow:hidden;display:none}
+.q-item.run .q-bar{display:block}
+.q-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.q-actions{display:flex;flex-direction:column;gap:4px}
+.mini{width:26px;height:26px;border-radius:7px;border:1px solid var(--line-2);background:var(--panel);color:var(--text-2);display:grid;place-items:center;transition:all .12s}
+.mini:hover:not([disabled]){background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mini svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.q-foot{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}
+.gbar{flex:1;height:6px;border-radius:99px;background:var(--panel-3);overflow:hidden}
+.gbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-2),var(--accent));transition:width .35s}
+.gbar.active i{background:repeating-linear-gradient(45deg,var(--accent) 0 8px,var(--accent-2) 8px 16px);background-size:32px 100%;animation:stripes .6s linear infinite}
+@keyframes stripes{to{background-position:32px 0}}
+#queueStat{font-family:var(--font-mono);font-size:11.5px;color:var(--text-3);white-space:nowrap}
+
+/* ════════════════════════ EDITOR ════════════════════════ */
+.editor-card{display:flex;flex-direction:column;overflow:visible}
+.ed-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.ed-title{display:flex;align-items:center;gap:10px;flex:1;min-width:220px}
+.ed-title svg{width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#docTitle{flex:1;min-width:0;font-family:var(--font-disp);font-weight:700;font-size:20px;border:none;background:transparent;
+  padding:3px 4px;border-bottom:2px solid transparent;outline:none;color:var(--text)}
+#docTitle:hover{border-color:var(--line-2)}
+#docTitle:focus{border-color:var(--accent)}
+.ed-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.menu-wrap{position:relative;display:inline-flex}
+.split .btn:first-child{border-radius:7px 0 0 7px}
+.split .caret{border-radius:0 7px 7px 0;border-left:1px solid rgba(0,0,0,.18);padding:6px 7px}
+.menu{position:absolute;top:calc(100% + 6px);right:0;z-index:40;min-width:230px;padding:6px;border-radius:11px;
+  background:var(--panel);border:1px solid var(--line-2);box-shadow:var(--shadow-lg);display:none}
+.menu.left{left:0;right:auto}
+.menu.open{display:block;animation:rise .16s ease}
+.menu button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:none;background:none;border-radius:7px;
+  font-size:13px;font-weight:600;color:var(--text);text-align:left}
+.menu button:hover{background:var(--panel-2)}
+.menu button svg{width:15px;height:15px;stroke:var(--text-3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.menu button small{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--text-3)}
+.menu hr{border:none;border-top:1px solid var(--line);margin:5px 4px}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:2px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);
+  position:sticky;top:65px;z-index:20}
+.tb-sep{width:1px;height:22px;background:var(--line-2);margin:0 6px}
+.tb{width:32px;height:32px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--text-2);display:grid;place-items:center;transition:all .12s}
+.tb svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tb:hover{background:var(--panel);border-color:var(--line-2);color:var(--text)}
+.tb.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.tb-select{height:32px;border-radius:7px;border:1px solid var(--line-2);background:var(--panel);font-size:12.5px;font-weight:600;padding:0 6px;color:var(--text);max-width:130px}
+.tb-select option{background:var(--panel)}
+.tb-color{position:relative;width:32px;height:32px;border-radius:7px;display:grid;place-items:center;border:1px solid transparent;color:var(--text-2)}
+.tb-color:hover{background:var(--panel);border-color:var(--line-2)}
+.tb-color svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tb-color input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none}
+.tb-color .swatch{position:absolute;left:7px;right:7px;bottom:4px;height:3px;border-radius:2px}
+.tb-grow{flex:1}
+
+.findbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+.findbar input[type=text]{height:32px;border-radius:7px;border:1px solid var(--line-2);background:var(--panel-2);padding:0 10px;font-size:13px;min-width:150px;flex:1;outline:none}
+.findbar input[type=text]:focus{border-color:var(--accent)}
+.findbar .cs{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2)}
+.findbar .cs input{accent-color:var(--accent)}
+#findCount{font-family:var(--font-mono);font-size:11.5px;color:var(--text-3);min-width:90px}
+
+.desk{background:var(--desk);padding:26px 22px;overflow:auto;max-height:calc(100vh - 250px);min-height:460px;
+  background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:18px 18px}
+.sheet{max-width:820px;margin:0 auto;min-height:560px;background:var(--paper);color:var(--paper-ink);border-radius:4px;
+  box-shadow:0 1px 2px rgba(0,0,0,.18),0 18px 44px rgba(0,0,0,.28);padding:58px 66px;
+  font-family:var(--font-doc);font-size:16px;line-height:1.75;outline:none;word-wrap:break-word;overflow-wrap:anywhere;transition:box-shadow .2s}
+.sheet:focus{box-shadow:0 0 0 3px var(--accent-line),0 18px 44px rgba(0,0,0,.28)}
+.sheet:empty::before{content:attr(data-ph);display:block;text-align:center;color:#a3a7ad;font-family:var(--font-ui);font-size:14.5px;
+  line-height:1.6;padding:120px 20px;white-space:pre-line;pointer-events:none}
+.sheet p{margin:0 0 .85em}
+.sheet ul,.sheet ol{margin:0 0 .85em 1.4em}
+.ocr-block{padding:2px 0 14px;margin-bottom:16px;border-bottom:1px dashed var(--paper-line);animation:rise .3s ease}
+.ocr-block:last-child{border-bottom:none;margin-bottom:0}
+.ocr-block.flash{animation:flash 1.4s ease}
+@keyframes flash{0%{background:rgba(255,178,36,.25)}100%{background:transparent}}
+.sheet .src{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:#a0700f;
+  margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--paper-line);user-select:none;line-height:1.5}
+.sheet .src::before{content:"◧ ";color:#c88a10}
+.sheet .empty-note{color:#9a9ea5;font-size:14px}
+
+.ed-foot{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:10px 16px;border-top:1px solid var(--line);background:var(--panel-2);border-radius:0 0 var(--r) var(--r)}
+.stat{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11.5px;color:var(--text-3);
+  background:var(--panel);border:1px solid var(--line)}
+.stat b{font-family:var(--font-mono);font-weight:500;font-size:12px;color:var(--text)}
+.save-state{margin-left:auto;font-size:11.5px;color:var(--text-3);display:inline-flex;align-items:center;gap:6px}
+.save-state i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.save-state[data-s="fail"] i{background:var(--err)}
+.save-state[data-s="dirty"] i{background:var(--warn)}
+
+/* ════════════════════════ REGISTRO ════════════════════════ */
+.log-wrap{max-width:1700px;margin:0 auto 22px;padding:0 24px}
+.log{background:#0b0d10;border:1px solid #20252d;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);color:#d5dbe3}
+.log-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;background:#0e1115;border-bottom:1px solid #20252d}
+.lights{display:flex;gap:5px}.lights i{width:10px;height:10px;border-radius:50%}
+.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.log-h .ttl{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.1em;color:#8b95a3}
+.lf{font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:99px;border:1px solid #262c35;background:transparent;color:#8b95a3}
+.lf:hover{color:#e6ebf1}
+.lf.on{background:#ffb224;border-color:#ffb224;color:#1b1203}
+.lf b{font-family:var(--font-mono);font-weight:500;margin-left:3px}
+.log-btns{margin-left:auto;display:flex;gap:5px}
+.lbtn{font-family:var(--font-mono);font-size:10.5px;padding:4px 9px;border-radius:6px;border:1px solid #262c35;background:transparent;color:#8b95a3}
+.lbtn:hover{border-color:#ffb224;color:#ffb224}
+#logBody{height:170px;overflow-y:auto;padding:10px 14px;font-family:var(--font-mono);font-size:11.8px;line-height:1.6;transition:height .25s}
+.log.collapsed #logBody{height:0;padding-top:0;padding-bottom:0}
+.le{display:grid;grid-template-columns:66px 50px minmax(0,1fr);gap:10px;padding:1px 0}
+.le .t{color:#56606e}
+.le .b{font-size:10px;font-weight:600;text-align:center;border-radius:4px;padding:1px 0;height:fit-content;margin-top:2px}
+.le[data-lv="info"] .b{color:#8fc3ff;background:rgba(111,183,255,.1)}
+.le[data-lv="ok"] .b{color:#3dd68c;background:rgba(61,214,140,.1)}
+.le[data-lv="warn"] .b{color:#ffb224;background:rgba(255,178,36,.12)}
+.le[data-lv="error"] .b{color:#ff6a5c;background:rgba(255,106,92,.13)}
+.le[data-lv="sys"] .b{color:#c4a7ff;background:rgba(196,167,255,.1)}
+.le .m{color:#cfd6df;word-break:break-word}
+.le[data-lv="error"] .m{color:#ffb0a6}
+.le[data-lv="warn"] .m{color:#f5d59a}
+#logBody[data-f="warn"] .le:not([data-lv="warn"]):not([data-lv="error"]){display:none}
+#logBody[data-f="error"] .le:not([data-lv="error"]){display:none}
+
+footer.credit{text-align:center;font-size:11.5px;color:var(--text-3);padding:0 20px 26px;letter-spacing:.03em}
+footer.credit b{color:var(--text-2)}
+
+/* ════════════════════════ CAPAS ════════════════════════ */
+.drop-overlay{position:fixed;inset:12px;z-index:70;border:3px dashed var(--accent);border-radius:20px;pointer-events:none;
+  background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(3px);display:none;place-items:center}
+body.dragging .drop-overlay{display:grid;animation:fade .15s ease}
+.drop-overlay div{text-align:center;font-family:var(--font-disp);font-size:28px;font-weight:700}
+.drop-overlay small{display:block;font-family:var(--font-ui);font-size:14px;font-weight:600;color:var(--text-2);margin-top:6px}
+@keyframes fade{from{opacity:0}}
+
+#toasts{position:fixed;right:18px;bottom:18px;z-index:95;display:flex;flex-direction:column;gap:8px;align-items:flex-end;max-width:calc(100vw - 36px)}
+.toast{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;background:var(--panel);border:1px solid var(--line-2);
+  border-left:4px solid var(--ok);box-shadow:var(--shadow-lg);font-size:13px;font-weight:600;max-width:380px;animation:tin .25s ease}
+.toast.warn{border-left-color:var(--warn)}.toast.error{border-left-color:var(--err)}.toast.info{border-left-color:var(--info)}
+.toast .t-act{border:none;background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:12px;padding:5px 10px;border-radius:7px;white-space:nowrap}
+.toast .t-act:hover{background:var(--accent);color:var(--accent-ink)}
+.toast.out{opacity:0;transform:translateX(16px);transition:all .3s}
+@keyframes tin{from{opacity:0;transform:translateY(10px)}}
+
+.overlay{position:fixed;inset:0;z-index:90;background:rgba(5,7,10,.62);backdrop-filter:blur(3px);display:grid;place-items:center;padding:20px;animation:fade .18s ease}
+.modal{width:min(440px,100%);background:var(--panel);border:1px solid var(--line-2);border-radius:16px;box-shadow:var(--shadow-lg);animation:rise .22s ease;max-height:calc(100vh - 40px);display:flex;flex-direction:column}
+.modal.wide{width:min(960px,100%)}
+.modal-h{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.modal-h strong{flex:1;font-family:var(--font-disp);font-size:18px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-b{padding:20px;overflow:auto}
+.modal-b p{color:var(--text-2);line-height:1.6;font-size:13.5px}
+.modal-f{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--line)}
+.modal-f .muted{margin-right:auto;font-size:12px}
+.m-ic{width:46px;height:46px;border-radius:12px;background:var(--err-soft);display:grid;place-items:center;margin-bottom:14px}
+.m-ic svg{width:23px;height:23px;stroke:var(--err);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.modal-b h3{font-family:var(--font-disp);font-size:20px;margin-bottom:6px}
+.pv-body{position:relative;display:grid;place-items:center;background:var(--desk);min-height:300px;padding:16px;overflow:auto}
+.pv-body img{max-width:100%;max-height:68vh;display:block;border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,.35);background:#fff}
+.pv-loading{color:var(--text-3);font-size:13px}
+.help-grid{display:grid;grid-template-columns:auto 1fr;gap:9px 16px;align-items:center;font-size:13px;margin-bottom:18px}
+.help-grid span{color:var(--text-2)}
+.tips{display:grid;gap:8px;font-size:13px;color:var(--text-2);line-height:1.55;padding-left:18px}
+
+@media (max-width:1180px){.app{grid-template-columns:330px minmax(0,1fr)}}
+@media (max-width:980px){
+  .app{grid-template-columns:1fr;padding:14px}
+  .log-wrap{padding:0 14px}
+  .topbar{padding:10px 14px}
+  .top-mid{order:3;flex-basis:100%;justify-content:flex-start}
+  .toolbar{position:static}
+  .desk{max-height:none;padding:14px 10px}
+  .sheet{padding:30px 22px;min-height:420px}
+  #queue{max-height:280px}
+  .banner-wrap{padding:0 14px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg></span>
+    <div class="brand-t">
+      <strong>LUMEN <em>OCR</em></strong>
+      <small>Estudio de extracción de texto · v3.1 offline</small>
+    </div>
+  </div>
+  <div class="top-mid">
+    <span class="chip" id="engineChip" data-state="idle" role="status" aria-live="polite">
+      <i class="dot"></i><span id="engineTxt">Motor en espera</span>
+      <button class="chip-btn" id="engineRetry" hidden>Reintentar</button>
+    </span>
+  </div>
+  <div class="top-right">
+    <span class="chip net" id="netChip" data-on="1" data-ready="0" title="Estado de la conexión y del modo sin internet"><i class="dot"></i><span id="netTxt">Comprobando…</span></span>
+    <button class="icon-btn" id="btnTheme" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema"></button>
+    <button class="icon-btn" id="btnHelp" title="Ayuda y atajos" aria-label="Ayuda" data-icon="help"></button>
+  </div>
+</header>
+
+<div class="banner-wrap" id="fileBanner" hidden>
+  <div class="banner" role="alert">
+    <span data-icon="help"></span>
+    <div><strong>Abre la app con «Abrir LUMEN OCR.bat»</strong>
+    Abriste el archivo directamente y el navegador bloquea el motor OCR así. Cierra esta pestaña y haz doble clic en <b>Abrir LUMEN OCR.bat</b> (está en la misma carpeta): así todo funciona sin internet.</div>
+  </div>
+</div>
+
+<main class="app">
+  <!-- ══════════ COLUMNA IZQUIERDA ══════════ -->
+  <aside class="side" aria-label="Entrada y ajustes">
+    <section class="card drop" id="dropzone" tabindex="0" aria-label="Zona para añadir archivos">
+      <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+      <div class="drop-icon" data-icon="upload"></div>
+      <h2>Suelta fotos o PDF</h2>
+      <p>JPG · PNG · WEBP · BMP · GIF · <b>PDF</b> (escaneados o con texto)<br>Puedes arrastrar en cualquier parte de la ventana.</p>
+      <div class="drop-actions">
+        <button class="btn btn-primary" id="btnUpload" data-ic="upload">Subir archivos</button>
+        <button class="btn" id="btnCamera" data-ic="camera">Cámara</button>
+      </div>
+      <p class="hint">o pega una captura con <kbd>Ctrl</kbd>+<kbd>V</kbd></p>
+      <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf" multiple hidden>
+      <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
+    </section>
+
+    <details class="card settings" id="settingsBox" open>
+      <summary><span data-icon="gear"></span><span class="eyebrow">Ajustes de reconocimiento</span><span class="chev" data-icon="chev"></span></summary>
+      <div class="set-body">
+        <div class="set-row">
+          <label for="langSel">Idioma del documento</label>
+          <select class="select" id="langSel"></select>
+          <span class="lang-note" id="langNote"></span>
+        </div>
+        <div class="set-row">
+          <label for="psmSel">Tipo de página</label>
+          <select class="select" id="psmSel">
+            <option value="3">Automático (recomendado)</option>
+            <option value="4">Una columna (libros, cartas)</option>
+            <option value="6">Bloque de texto uniforme</option>
+            <option value="11">Texto disperso (tickets, carteles)</option>
+            <option value="7">Una sola línea</option>
+          </select>
+        </div>
+        <label class="sw"><input type="checkbox" id="optEnhance"><span class="track"></span><span>Mejorar imagen<small>Escala de grises y contraste automático</small></span></label>
+        <label class="sw"><input type="checkbox" id="optPdfText"><span class="track"></span><span>Usar texto nativo del PDF<small>Instantáneo y exacto si el PDF ya trae texto</small></span></label>
+        <label class="sw"><input type="checkbox" id="optAuto"><span class="track"></span><span>Procesar al añadir archivos</span></label>
+        <label class="sw"><input type="checkbox" id="optHeaders"><span class="track"></span><span>Encabezado de origen en cada resultado</span></label>
+      </div>
+    </details>
+
+    <section class="card queue-card" aria-label="Cola de trabajo">
+      <div class="card-h">
+        <span class="eyebrow">Cola de trabajo</span>
+        <span class="count" id="queueCount">0</span>
+        <button class="btn btn-sm btn-ghost" id="btnClearQueue" data-ic="trash" title="Vaciar la cola">Vaciar</button>
+        <button class="btn btn-sm btn-primary" id="btnRun" data-ic="play">Procesar</button>
+      </div>
+      <ul id="queue" aria-live="polite"></ul>
+      <div class="q-foot">
+        <div class="gbar" id="gBar"><i id="gFill"></i></div>
+        <span id="queueStat">0 / 0</span>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ══════════ EDITOR ══════════ -->
+  <section class="card editor-card" aria-label="Documento editable">
+    <div class="ed-head">
+      <div class="ed-title">
+        <span data-icon="doc"></span>
+        <input id="docTitle" value="Documento extraído" aria-label="Título del documento" maxlength="120">
+      </div>
+      <div class="ed-actions">
+        <button class="btn btn-sm" id="btnCopy" data-ic="copy" title="Copiar todo el texto">Copiar</button>
+        <button class="btn btn-sm" id="btnPaste" data-ic="paste" title="Pegar texto o una imagen del portapapeles">Pegar</button>
+        <div class="menu-wrap split">
+          <button class="btn btn-sm btn-primary" id="btnDownload" data-ic="download" title="Descargar como .txt (Ctrl+S)">Descargar</button>
+          <button class="btn btn-sm btn-primary caret" data-menu="dlMenu" aria-label="Más formatos" data-ic="chev"></button>
+          <div class="menu" id="dlMenu" role="menu">
+            <button data-fmt="txt" data-ic="doc">Texto plano <small>.txt</small></button>
+            <button data-fmt="doc" data-ic="doc">Word <small>.doc</small></button>
+            <button data-fmt="html" data-ic="doc">Página web <small>.html</small></button>
+            <hr>
+            <button data-fmt="print" data-ic="print">Imprimir / Guardar PDF <small>.pdf</small></button>
+          </div>
+        </div>
+        <button class="btn btn-sm" id="btnShare" data-ic="share" title="Compartir el texto">Compartir</button>
+        <button class="btn btn-sm btn-danger" id="btnClearAll" data-ic="trash" title="Limpiar todo">Limpiar</button>
+      </div>
+    </div>
+
+    <div class="toolbar" id="toolbar" role="toolbar" aria-label="Formato de texto">
+      <button class="tb" data-cmd="undo" data-ic="undo" title="Deshacer (Ctrl+Z)"></button>
+      <button class="tb" data-cmd="redo" data-ic="redo" title="Rehacer (Ctrl+Y)"></button>
+      <span class="tb-sep"></span>
+      <select class="tb-select" id="fontSel" title="Fuente">
+        <option value="" selected>Fuente…</option>
+        <option value="Cambria">Cambria</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Times New Roman">Times</option>
+        <option value="Arial">Arial</option>
+        <option value="Manrope">Manrope</option>
+        <option value="Courier New">Courier</option>
+      </select>
+      <select class="tb-select" id="sizeSel" title="Tamaño" style="max-width:86px">
+        <option value="" selected>Tamaño</option>
+        <option value="2">Pequeño</option><option value="3">Normal</option>
+        <option value="4">Medio</option><option value="5">Grande</option>
+        <option value="6">Muy grande</option><option value="7">Enorme</option>
+      </select>
+      <span class="tb-sep"></span>
+      <button class="tb" data-cmd="bold" data-ic="bold" title="Negrita (Ctrl+B)"></button>
+      <button class="tb" data-cmd="italic" data-ic="italic" title="Cursiva (Ctrl+I)"></button>
+      <button class="tb" data-cmd="underline" data-ic="under" title="Subrayado (Ctrl+U)"></button>
+      <button class="tb" data-cmd="strikeThrough" data-ic="strike" title="Tachado"></button>
+      <span class="tb-color" title="Color de texto"><span data-icon="color"></span><span class="swatch" id="swFore" style="background:#c0392b"></span><input type="color" id="foreCol" value="#c0392b" aria-label="Color de texto"></span>
+      <span class="tb-color" title="Resaltado"><span data-icon="highlight"></span><span class="swatch" id="swHil" style="background:#ffe28a"></span><input type="color" id="hilCol" value="#ffe28a" aria-label="Color de resaltado"></span>
+      <button class="tb" data-cmd="removeFormat" data-ic="eraser" title="Quitar formato"></button>
+      <span class="tb-sep"></span>
+      <button class="tb" data-cmd="justifyLeft" data-ic="al" title="Alinear a la izquierda"></button>
+      <button class="tb" data-cmd="justifyCenter" data-ic="ac" title="Centrar"></button>
+      <button class="tb" data-cmd="justifyRight" data-ic="ar" title="Alinear a la derecha"></button>
+      <button class="tb" data-cmd="justifyFull" data-ic="aj" title="Justificar"></button>
+      <span class="tb-sep"></span>
+      <button class="tb" data-cmd="insertUnorderedList" data-ic="ul" title="Lista con viñetas"></button>
+      <button class="tb" data-cmd="insertOrderedList" data-ic="ol" title="Lista numerada"></button>
+      <button class="tb" data-cmd="outdent" data-ic="outd" title="Reducir sangría"></button>
+      <button class="tb" data-cmd="indent" data-ic="ind" title="Aumentar sangría"></button>
+      <span class="tb-grow"></span>
+      <button class="tb" id="btnFind" data-ic="search" title="Buscar y reemplazar (Ctrl+F)"></button>
+      <div class="menu-wrap">
+        <button class="btn btn-sm btn-ghost" data-menu="toolsMenu" data-ic="wand" title="Herramientas de limpieza de texto">Limpiar texto</button>
+        <div class="menu" id="toolsMenu" role="menu">
+          <button data-tool="join" data-ic="wand">Unir líneas partidas</button>
+          <button data-tool="spaces" data-ic="wand">Corregir espacios</button>
+          <button data-tool="headers" data-ic="x">Quitar encabezados de origen</button>
+          <hr>
+          <button data-tool="upper" data-ic="doc">Selección a MAYÚSCULAS</button>
+          <button data-tool="lower" data-ic="doc">Selección a minúsculas</button>
+          <button data-tool="sentence" data-ic="doc">Selección a Tipo oración</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="findbar" id="findBar" hidden>
+      <input type="text" id="findIn" placeholder="Buscar…" aria-label="Buscar">
+      <input type="text" id="replIn" placeholder="Reemplazar por…" aria-label="Reemplazar por">
+      <label class="cs"><input type="checkbox" id="findCase"> Aa</label>
+      <span id="findCount"></span>
+      <button class="btn btn-sm" id="btnFindNext" data-ic="search">Siguiente</button>
+      <button class="btn btn-sm btn-primary" id="btnReplAll">Reemplazar todo</button>
+      <button class="mini" id="btnFindClose" title="Cerrar" data-icon="x"></button>
+    </div>
+
+    <div class="desk" id="desk">
+      <div class="sheet" id="editor" contenteditable="true" spellcheck="true" aria-label="Texto extraído, editable"
+           data-ph="El texto reconocido aparecerá aquí.&#10;Añade una foto o un PDF para comenzar — también puedes escribir o pegar texto."></div>
+    </div>
+
+    <div class="ed-foot">
+      <span class="stat"><b id="stWords">0</b> palabras</span>
+      <span class="stat"><b id="stChars">0</b> caracteres</span>
+      <span class="stat"><b id="stItems">0</b> procesados</span>
+      <span class="stat">confianza <b id="stConf">—</b></span>
+      <span class="stat">tiempo <b id="stTime">0.0 s</b></span>
+      <span class="save-state" id="saveState" data-s="saved"><i></i><span id="saveTxt">Todo se procesa en tu equipo</span></span>
+    </div>
+  </section>
+</main>
+
+<!-- ══════════ REGISTRO ══════════ -->
+<section class="log-wrap" aria-label="Registro de actividad">
+  <div class="log" id="logPanel">
+    <div class="log-h">
+      <span class="lights"><i></i><i></i><i></i></span>
+      <span class="ttl">REGISTRO</span>
+      <button class="lf on" data-lf="all">Todo</button>
+      <button class="lf" data-lf="warn">Avisos<b id="cWarn">0</b></button>
+      <button class="lf" data-lf="error">Errores<b id="cErr">0</b></button>
+      <div class="log-btns">
+        <button class="lbtn" id="btnLogCopy">copiar</button>
+        <button class="lbtn" id="btnLogClear">limpiar</button>
+        <button class="lbtn" id="btnLogToggle">▾ contraer</button>
+      </div>
+    </div>
+    <div id="logBody" data-f="all" role="log"></div>
+  </div>
+</section>
+
+<footer class="credit"><b>LUMEN OCR</b> · Reconocimiento de texto 100 % local y sin internet — Tesseract OCR (Apache 2.0) y PDF.js (Apache 2.0)</footer>
+
+<div class="drop-overlay" aria-hidden="true"><div>Suelta para añadir a la cola<small>Imágenes y PDF</small></div></div>
+<div id="toasts" aria-live="polite"></div>
+
+<!-- confirmar limpieza -->
+<div class="overlay" id="mClear" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mClearT">
+    <div class="modal-b">
+      <div class="m-ic" data-icon="trash"></div>
+      <h3 id="mClearT">¿Limpiar todo?</h3>
+      <p>Se vaciarán el documento, la cola y el registro. Si quieres conservar el texto, descárgalo antes. El motor OCR sigue cargado para que no tengas que volver a descargarlo.</p>
+    </div>
+    <div class="modal-f">
+      <button class="btn" data-close>Cancelar</button>
+      <button class="btn btn-danger" id="mClearOk" data-ic="trash">Sí, limpiar todo</button>
+    </div>
+  </div>
+</div>
+
+<!-- vista previa -->
+<div class="overlay" id="mPreview" hidden>
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="pvTitle">
+    <div class="modal-h"><strong id="pvTitle">Vista previa</strong><button class="mini" data-close title="Cerrar" data-icon="x"></button></div>
+    <div class="pv-body"><img id="pvImg" alt="Vista previa del documento" hidden><span class="pv-loading" id="pvLoading">Generando vista previa…</span></div>
+    <div class="modal-f">
+      <span class="muted" id="pvInfo"></span>
+      <button class="btn" id="pvRotate" data-ic="rotate">Girar 90°</button>
+      <button class="btn btn-primary" id="pvRedo" data-ic="refresh">Reprocesar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ayuda -->
+<div class="overlay" id="mHelp" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hTitle" style="width:min(560px,100%)">
+    <div class="modal-h"><strong id="hTitle">Ayuda rápida</strong><button class="mini" data-close title="Cerrar" data-icon="x"></button></div>
+    <div class="modal-b">
+      <div class="help-grid">
+        <span><kbd>Ctrl</kbd>+<kbd>Intro</kbd></span><span>Procesar la cola</span>
+        <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span><span>Abrir archivos</span>
+        <span><kbd>Ctrl</kbd>+<kbd>V</kbd></span><span>Pegar una captura de pantalla para leerla</span>
+        <span><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span>Descargar como .txt</span>
+        <span><kbd>Ctrl</kbd>+<kbd>F</kbd></span><span>Buscar y reemplazar en el documento</span>
+        <span><kbd>Esc</kbd></span><span>Cerrar menús y ventanas</span>
+      </div>
+      <ul class="tips">
+        <li>Usa fotos con buena luz, sin sombras y de al menos 1200 px.</li>
+        <li>Si la foto salió de lado, pulsa <b>↻ girar</b> en la cola: se vuelve a leer sola.</li>
+        <li>Para tickets o carteles elige <b>Texto disperso</b>; para libros, <b>Una columna</b>.</li>
+        <li>Los PDF que ya traen texto se extraen al instante y sin errores.</li>
+        <li>El documento se guarda solo en este navegador: si se va la corriente, lo recuperas al volver a abrir.</li>
+        <li>Español e inglés vienen incluidos y funcionan sin internet. Si eliges otro idioma, la app lo descarga sola una única vez (1–3 MB), te avisa y lo guarda en su carpeta.</li>
+        <li>Abre siempre la app con <b>Abrir LUMEN OCR.bat</b>. La ventanita minimizada que aparece es el servidor local: déjala abierta mientras trabajas.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════════
+   CONFIGURACIÓN — todo se busca primero en la carpeta "lib/" de la app.
+   Internet solo se usa como reserva (y una única vez) para lo que falte.
+   ════════════════════════════════════════════════════════════════ */
+const CONFIG = {
+  local: {
+    tesseract:'lib/tesseract/tesseract.min.js', worker:'lib/tesseract/worker.min.js', core:'lib/tesseract/',
+    lang:'lib/lang/',
+    pdf:'lib/pdfjs/pdf.js', pdfWorker:'lib/pdfjs/pdf.worker.js', cmaps:'lib/pdfjs/cmaps/', fonts:'lib/pdfjs/standard_fonts/'
+  },
+  cdn: {
+    tesseract:['https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5.1.1/dist/tesseract.min.js'],
+    core:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+    pdf:[
+      {lib:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',worker:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',base:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/'},
+      {lib:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',worker:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js',base:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/'}
+    ]
+  },
+  bundledLangs: ['spa','eng'],      // vienen dentro de la app
+  engineMB: 7,
+  maxPdfPages: 200,
+  scriptTimeoutMs: 45000,
+  loadTimeoutMs: 240000,
+  recognizeTimeoutMs: 300000,
+  downloadTimeoutMs: 900000
+};
+/* idiomas disponibles: nombre y tamaño de descarga aproximado (MB) */
+const LANG_INFO = {
+  spa:['Español',2.0], eng:['Inglés',2.8], por:['Portugués',1.3], fra:['Francés',0.7], ita:['Italiano',1.6],
+  deu:['Alemán',1.3], cat:['Catalán',0.6], glg:['Gallego',1.7], eus:['Euskera',2.1], nld:['Neerlandés',2.9],
+  pol:['Polaco',2.5], ron:['Rumano',1.6], tur:['Turco',2.0], rus:['Ruso',2.6], ukr:['Ucraniano',2.0],
+  ell:['Griego',1.3], lat:['Latín',1.7], ara:['Árabe',1.6], heb:['Hebreo',0.6], hin:['Hindi',1.3],
+  jpn:['Japonés',1.9], kor:['Coreano',1.5], chi_sim:['Chino simplificado',1.6], chi_tra:['Chino tradicional',1.6]
+};
+const langName = c => c.split('+').map(x=>(LANG_INFO[x]||[x])[0]).join(' + ');
+const langMB = c => (LANG_INFO[c]||[c,'?'])[1];
+const abs = u => new URL(u,location.href).href;
+const VERSION = '3.1';
+const BASE_TITLE = 'LUMEN OCR — Estudio de extracción de texto';
+
+/* ════════════════════════ ICONOS ════════════════════════ */
+const ICONS = {
+  upload:'<path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+  camera:'<path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.2"/>',
+  copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>',
+  paste:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a3 3 0 0 1 6 0M9 11h6M9 15h4"/>',
+  download:'<path d="M12 3v10m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  share:'<circle cx="6" cy="12" r="2.4"/><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="m8.2 10.8 7-4M8.2 13.2l7 4"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v5m4-5v5"/>',
+  play:'<path d="M7 4.5v15l12-7.5Z"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  refresh:'<path d="M20 8a8.3 8.3 0 0 0-14.5-1.5M4 3v4.5h4.5M4 16a8.3 8.3 0 0 0 14.5 1.5M20 21v-4.5h-4.5"/>',
+  rotate:'<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
+  undo:'<path d="M8 5 3.5 9.5 8 14"/><path d="M3.5 9.5H15a5.5 5.5 0 0 1 0 11h-4"/>',
+  redo:'<path d="m16 5 4.5 4.5L16 14"/><path d="M20.5 9.5H9a5.5 5.5 0 0 0 0 11h4"/>',
+  bold:'<path d="M7.5 4.5h5.2a3.1 3.1 0 0 1 0 6.2H7.5Zm0 6.2h6a3.3 3.3 0 0 1 0 6.6h-6Z"/>',
+  italic:'<path d="M10.5 4.5H18M6 19.5h7.5M14.2 4.5 9.8 19.5"/>',
+  under:'<path d="M6.5 4.5v6a5.5 5.5 0 0 0 11 0v-6M5 20.5h14"/>',
+  strike:'<path d="M5 12h14M8.7 6.6c.7-1.3 2-2.1 3.7-2.1 2.2 0 3.9 1.1 3.9 2.9 0 .9-.4 1.6-1 2.1M15.5 17c-.7 1.5-2.1 2.5-4 2.5-2.3 0-4.2-1.2-4.2-3.1 0-.6.1-1.1.4-1.5"/>',
+  color:'<path d="M12 3s6 6.3 6 10a6 6 0 0 1-12 0c0-3.7 6-10 6-10Z"/>',
+  highlight:'<path d="m9 15-4.5 4.5M13.5 3.5 20 10l-7.5 7.5L6 11Z"/>',
+  eraser:'<path d="m15 4 5 5-9.5 9.5H7l-3-3Z"/><path d="M4 20.5h16"/>',
+  al:'<path d="M4 5h16M4 10h10M4 15h16M4 20h10"/>',
+  ac:'<path d="M4 5h16M7 10h10M4 15h16M7 20h10"/>',
+  ar:'<path d="M4 5h16M10 10h10M4 15h16M10 20h10"/>',
+  aj:'<path d="M4 5h16M4 10h16M4 15h16M4 20h16"/>',
+  ul:'<circle cx="5" cy="6" r="1.4" fill="currentColor"/><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="5" cy="18" r="1.4" fill="currentColor"/><path d="M10 6h10M10 12h10M10 18h10"/>',
+  ol:'<path d="M10 6h10M10 12h10M10 18h10"/><text x="2.5" y="8.5" font-size="7" stroke="none" fill="currentColor">1</text><text x="2.5" y="14.5" font-size="7" stroke="none" fill="currentColor">2</text><text x="2.5" y="20.5" font-size="7" stroke="none" fill="currentColor">3</text>',
+  ind:'<path d="M9 5h11M9 12h11M9 19h11M3 9.5h6M3 9.5 6.2 6.8M3 9.5l3.2 2.7"/>',
+  outd:'<path d="M9 5h11M9 12h11M9 19h11M9 9.5H3m6 0L5.8 6.8M9 9.5 5.8 12.2"/>',
+  chev:'<path d="m7 10 5 5 5-5"/>',
+  doc:'<path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+  print:'<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  wand:'<path d="m4 20 10-10"/><path d="m13 7 4 4"/><path d="M15 3v3M13.5 4.5h3M20 8v2M19 9h2M19 14v3M17.5 15.5h3"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>'
+};
+const icon = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]||''}</svg>`;
+document.querySelectorAll('[data-ic]').forEach(b=>{
+  const label=b.textContent.trim();
+  b.innerHTML = icon(b.dataset.ic) + (label?`<span>${label}</span>`:'');
+});
+document.querySelectorAll('[data-icon]').forEach(el=>{ el.innerHTML=icon(el.dataset.icon); });
+
+/* ════════════════════════ UTILIDADES ════════════════════════ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hhmmss = () => new Date().toLocaleTimeString('es-ES',{hour12:false});
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function withTimeout(p,ms,msg){
+  let t;
+  return Promise.race([p,new Promise((_,rej)=>{t=setTimeout(()=>{const e=new Error(msg);e.timeout=true;rej(e);},ms);})])
+    .finally(()=>clearTimeout(t));
+}
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem('lumen:'+k); return v==null?d:JSON.parse(v); }catch{ return d; } },
+  set(k,v){ try{ localStorage.setItem('lumen:'+k,JSON.stringify(v)); return true; }catch{ return false; } },
+  del(k){ try{ localStorage.removeItem('lumen:'+k); }catch{} }
+};
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+/* ════════════════════════ ESTADO ════════════════════════ */
+const SESSION = Date.now().toString(36);
+const items = new Map();          // id → elemento de la cola
+const pdfDocs = new Set();
+let uid = 0, gen = 0, running = false, stopReq = false, activeItem = null;
+const editor = $('editor'), logBody = $('logBody'), qList = $('queue');
+
+/* ════════════════════════ ENTORNO (sin internet) ════════════════════════
+   server      → datos del servidor local (Abrir LUMEN OCR.bat), o null
+   localEngine → el motor OCR está en lib/tesseract
+   localLangs  → idiomas presentes en lib/lang
+   browserLangs→ idiomas descargados de internet y guardados en este navegador */
+const ENV = {
+  server:null, localEngine:false, engineSrc:null,
+  localLangs:new Set(CONFIG.bundledLangs),
+  browserLangs:new Set(store.get('browserLangs',[])),
+  fileProto: location.protocol==='file:'
+};
+const langReady = code => code.split('+').every(c=>ENV.localLangs.has(c)||ENV.browserLangs.has(c));
+function renderLangSelect(){
+  const sel=$('langSel'), cur=sel.value||store.get('settings',{}).lang||'spa+eng';
+  const codes=Object.keys(LANG_INFO);
+  const inst=codes.filter(c=>langReady(c)), rest=codes.filter(c=>!langReady(c));
+  let h='<optgroup label="Instalados · funcionan sin internet">';
+  if(langReady('spa+eng')) h+='<option value="spa+eng">✓ Español + Inglés</option>';
+  inst.forEach(c=>{ h+=`<option value="${c}">✓ ${LANG_INFO[c][0]}</option>`; });
+  h+='</optgroup>';
+  if(rest.length){
+    h+='<optgroup label="Se descargan una sola vez al elegirlos">';
+    rest.forEach(c=>{ h+=`<option value="${c}">${LANG_INFO[c][0]} · ${LANG_INFO[c][1]} MB</option>`; });
+    h+='</optgroup>';
+  }
+  sel.innerHTML=h;
+  sel.value=[...sel.options].some(o=>o.value===cur)?cur:'spa+eng';
+  updateLangNote();
+}
+function updateLangNote(){
+  const c=$('langSel').value||'spa+eng', n=$('langNote');
+  if(langReady(c)){ n.className='lang-note'; n.innerHTML='<b>✓ Instalado</b> · funciona sin internet'; }
+  else{
+    const miss=c.split('+').filter(x=>!langReady(x));
+    const mb=miss.reduce((a,x)=>a+(+langMB(x)||0),0).toFixed(1);
+    n.className='lang-note dl'; n.innerHTML=`<b>⬇ Se descargará una sola vez</b> (${mb} MB) y luego funcionará sin internet`;
+  }
+  updateNetChip();
+}
+function updateNetChip(){
+  const on=navigator.onLine, ready=!ENV.fileProto && (ENV.localEngine||ENV.engineSrc) && langReady($('langSel').value||'spa+eng');
+  const chip=$('netChip'); chip.dataset.on=on?'1':'0'; chip.dataset.ready=ready?'1':'0';
+  $('netTxt').textContent = (on?'En línea':'Sin internet') + (ready?' · listo offline':' · falta descargar');
+  chip.title = ready ? 'Todo lo necesario está en tu equipo: puedes trabajar sin internet.'
+                     : 'Falta descargar algo una sola vez (motor o idioma). La app lo hará sola y te avisará.';
+}
+renderLangSelect();
+
+/* ════════════════════════ TEMA ════════════════════════ */
+function applyTheme(t){
+  document.documentElement.dataset.theme=t;
+  $('btnTheme').innerHTML=icon(t==='dark'?'sun':'moon');
+  document.querySelector('meta[name="theme-color"]').content = t==='dark'?'#0e1013':'#eef0f3';
+}
+applyTheme(document.documentElement.dataset.theme==='light'?'light':'dark');
+$('btnTheme').onclick=()=>{
+  const t=document.documentElement.dataset.theme==='dark'?'light':'dark';
+  applyTheme(t); store.set('theme',t);
+};
+
+/* ════════════════════════ REGISTRO Y AVISOS ════════════════════════ */
+const LVL={info:'INFO',ok:'OK',warn:'AVISO',error:'ERROR',sys:'SIS'};
+let nWarn=0, nErr=0;
+function log(lv,msg){
+  const e=document.createElement('div'); e.className='le'; e.dataset.lv=lv;
+  const t=document.createElement('span'); t.className='t'; t.textContent=hhmmss();
+  const b=document.createElement('span'); b.className='b'; b.textContent=LVL[lv]||lv;
+  const m=document.createElement('span'); m.className='m'; m.textContent=msg;
+  e.append(t,b,m);
+  const atBottom = logBody.scrollHeight - logBody.scrollTop - logBody.clientHeight < 40;
+  logBody.appendChild(e);
+  while(logBody.children.length>500) logBody.firstChild.remove();
+  if(atBottom) logBody.scrollTop=logBody.scrollHeight;
+  if(lv==='warn') $('cWarn').textContent=++nWarn;
+  if(lv==='error') $('cErr').textContent=++nErr;
+}
+function toast(msg,type='ok',action){
+  const t=document.createElement('div'); t.className='toast '+type; t.setAttribute('role','status');
+  const s=document.createElement('span'); s.textContent=msg; t.appendChild(s);
+  const close=()=>{ if(!t.isConnected) return; t.classList.add('out'); setTimeout(()=>t.remove(),320); };
+  if(action){
+    const b=document.createElement('button'); b.className='t-act'; b.textContent=action.label;
+    b.onclick=()=>{ try{action.run();}finally{close();} };
+    t.appendChild(b);
+  }
+  $('toasts').appendChild(t);
+  while($('toasts').children.length>4) $('toasts').firstChild.remove();
+  setTimeout(close, action?7000:3400);
+}
+
+/* ════════════════════════ AJUSTES ════════════════════════ */
+const DEFAULTS={lang:'spa+eng',psm:'3',enhance:true,pdfText:true,autoRun:true,headers:true};
+const settings=Object.assign({},DEFAULTS,store.get('settings',{}));
+function bindSelect(id,key){
+  const el=$(id);
+  if(![...el.options].some(o=>o.value===settings[key])) settings[key]=DEFAULTS[key];
+  el.value=settings[key];
+  el.addEventListener('change',()=>{ settings[key]=el.value; store.set('settings',settings); onSetting(key); });
+}
+function bindSwitch(id,key){
+  const el=$(id); el.checked=!!settings[key];
+  el.addEventListener('change',()=>{ settings[key]=el.checked; store.set('settings',settings); onSetting(key); });
+}
+bindSelect('langSel','lang'); bindSelect('psmSel','psm');
+bindSwitch('optEnhance','enhance'); bindSwitch('optPdfText','pdfText');
+bindSwitch('optAuto','autoRun'); bindSwitch('optHeaders','headers');
+if(store.get('settingsClosed',false)) $('settingsBox').open=false;
+$('settingsBox').addEventListener('toggle',()=>store.set('settingsClosed',!$('settingsBox').open));
+function onSetting(key){
+  if(key==='lang'){
+    updateLangNote();
+    log('info',`Idioma seleccionado: ${langName(settings.lang)}`);
+    if(!langReady(settings.lang)){
+      const msg=`${langName(settings.lang)} no está instalado: se descargará ahora una sola vez y luego funcionará sin internet.`;
+      log('info',msg); toast(msg,'info');
+    }
+    if(!running) getWorker(settings.lang).catch(()=>{});
+    else log('info','El nuevo idioma se aplicará al siguiente elemento de la cola.');
+  }
+  if(key==='psm') log('info',`Tipo de página: ${$('psmSel').selectedOptions[0].text}`);
+}
+
+/* ════════════════════════ CARGA DE LIBRERÍAS ════════════════════════ */
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=src; s.async=true; s.crossOrigin='anonymous';
+    const tm=setTimeout(()=>{ s.remove(); rej(new Error('tiempo de espera agotado')); },CONFIG.scriptTimeoutMs);
+    s.onload=()=>{ clearTimeout(tm); res(); };
+    s.onerror=()=>{ clearTimeout(tm); s.remove(); rej(new Error('no se pudo descargar')); };
+    document.head.appendChild(s);
+  });
+}
+const hostOf = u => { try{ return new URL(u,location.href).host||'archivo local'; }catch{ return u; } };
+
+/* ════════════════════════ SERVIDOR LOCAL Y DESCARGAS AUTOMÁTICAS ════════════════════════ */
+async function apiCall(name,params,ms){
+  const q=new URLSearchParams(params||{}).toString();
+  let r;
+  try{ r=await withTimeout(fetch(`__lumen/${name}${q?'?'+q:''}`,{cache:'no-store'}),ms,'el servidor local no respondió a tiempo'); }
+  catch(e){ if(e&&e.timeout) throw e; throw new Error('no hay conexión con el servidor local. Vuelve a abrir «Abrir LUMEN OCR.bat»'); }
+  if(!r.ok) throw new Error('el servidor local respondió con error '+r.status);
+  return r.json();
+}
+async function fileExists(u){
+  try{ const r=await withTimeout(fetch(u,{method:'HEAD',cache:'no-store'}),4000,'t'); if(r.ok) return true; }catch{}
+  try{ if('caches' in window) return !!(await caches.match(abs(u))); }catch{}
+  return false;
+}
+async function detectEnv(){
+  if(ENV.fileProto){
+    $('fileBanner').hidden=false;
+    log('error','La app se abrió como archivo suelto. Ábrela con «Abrir LUMEN OCR.bat» para que el motor funcione sin internet.');
+    updateNetChip(); return;
+  }
+  try{
+    const j=await withTimeout(fetch('__lumen/estado',{cache:'no-store'}).then(r=>r.ok?r.json():null),2500,'t');
+    if(j && j.lumen){
+      ENV.server=j; ENV.localEngine=!!j.motor;
+      ENV.localLangs=new Set([...(j.idiomas||[])]);
+      log('sys',`Servidor local activo · motor ${j.motor?'instalado':'pendiente de descarga'} · idiomas en la carpeta: ${(j.idiomas||[]).map(langName).join(', ')||'ninguno'}`);
+    }
+  }catch{}
+  if(!ENV.server){
+    ENV.localEngine=await fileExists(CONFIG.local.tesseract);
+    const found=new Set();
+    for(const c of CONFIG.bundledLangs) if(await fileExists(CONFIG.local.lang+c+'.traineddata.gz')) found.add(c);
+    ENV.localLangs=found;
+    log('info',`Modo web · motor ${ENV.localEngine?'incluido':'desde internet (se guarda en el navegador)'} · idiomas incluidos: ${[...found].map(langName).join(', ')||'ninguno'}`);
+  }
+  renderLangSelect();
+}
+
+let tessBase=null, tessP=null;
+function ensureTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(!tessP){
+    tessP=(async()=>{
+      /* 1) con el servidor local: si falta el motor, se descarga UNA vez dentro de la carpeta de la app */
+      if(ENV.server && !ENV.localEngine){
+        if(!navigator.onLine) throw new Error('El motor OCR aún no está instalado y no hay internet. Conéctate una sola vez para que la app lo descargue.');
+        const msg=`Instalando el motor OCR (unos ${CONFIG.engineMB} MB). Solo ocurre una vez; después funciona sin internet.`;
+        log('sys',msg); toast(msg,'info');
+        setEngine('loading','Instalando motor (solo la primera vez)…');
+        try{
+          const j=await apiCall('motor',{},CONFIG.downloadTimeoutMs);
+          if(!j.ok) throw new Error(j.error||'descarga incompleta');
+          ENV.localEngine=true;
+          log('ok','Motor OCR instalado en la carpeta de la app.'); toast('Motor OCR instalado: ya funciona sin internet','ok');
+        }catch(e){ log('warn','No se pudo instalar el motor en la carpeta: '+e.message+'. Probando desde internet…'); }
+      }
+      /* 2) carga: primero la copia local, luego internet como reserva */
+      const sources=[];
+      if(ENV.localEngine) sources.push({u:CONFIG.local.tesseract,local:true});
+      CONFIG.cdn.tesseract.forEach(u=>sources.push({u,local:false}));
+      for(const s of sources){
+        try{
+          setEngine('loading',s.local?'Cargando motor…':'Descargando motor…');
+          await loadScript(abs(s.u));
+          if(window.Tesseract){
+            ENV.engineSrc=s.local?'local':'cdn'; tessBase=abs(s.u).replace(/[^/]*$/,'');
+            log('info', s.local?'Motor OCR cargado desde la carpeta de la app (sin internet).':`Motor OCR descargado de ${hostOf(s.u)} (queda guardado en el navegador).`);
+            updateNetChip(); return;
+          }
+        }catch(e){ log('warn',`Motor no disponible en ${s.local?'la carpeta de la app':hostOf(s.u)} (${e.message}).`); }
+      }
+      throw new Error(navigator.onLine?'No se pudo cargar el motor OCR. Revisa la conexión o la VPN y pulsa «Reintentar».'
+                                       :'El motor OCR no está instalado y no hay internet. Conéctate una vez para descargarlo.');
+    })();
+    tessP.catch(()=>{ tessP=null; });
+  }
+  return tessP;
+}
+/* Prepara los idiomas: devuelve la ruta local, o null si deben venir de internet */
+async function prepareLangs(lang){
+  const codes=lang.split('+');
+  let missing=codes.filter(c=>!ENV.localLangs.has(c));
+  if(missing.length && ENV.server){
+    for(const c of missing){
+      if(!navigator.onLine) throw new Error(`${langName(c)} no está instalado y no hay internet. Conéctate una vez para descargarlo (${langMB(c)} MB).`);
+      const msg=`Descargando el idioma ${langName(c)} (${langMB(c)} MB) por única vez…`;
+      log('sys',msg); toast(msg,'info'); setEngine('loading',`Descargando ${langName(c)}…`);
+      const j=await apiCall('idioma',{codigo:c},CONFIG.downloadTimeoutMs);
+      if(!j.ok) throw new Error(`No se pudo descargar ${langName(c)}: ${j.error||'error desconocido'}`);
+      ENV.localLangs.add(c);
+      log('ok',`Idioma ${langName(c)} instalado en la carpeta de la app.`);
+      toast(`${langName(c)} instalado: ya funciona sin internet`,'ok');
+    }
+    renderLangSelect(); missing=[];
+  }
+  if(!missing.length) return abs(CONFIG.local.lang);
+  const fresh=missing.filter(c=>!ENV.browserLangs.has(c));
+  if(fresh.length){
+    if(!navigator.onLine) throw new Error(`${langName(fresh.join('+'))} no está instalado y no hay internet. Conéctate una vez para descargarlo.`);
+    const msg=`Descargando ${langName(fresh.join('+'))} de internet por única vez; quedará guardado en este navegador.`;
+    log('sys',msg); toast(msg,'info');
+  }
+  return null;
+}
+
+/* ════════════════════════ MOTOR OCR ════════════════════════ */
+function setEngine(state,txt){
+  $('engineChip').dataset.state=state; $('engineTxt').textContent=txt;
+  $('engineRetry').hidden = state!=='error' || ENV.fileProto;
+}
+const STATUS_ES={
+  'loading tesseract core':'Cargando núcleo','initializing tesseract':'Iniciando motor','initialized tesseract':'Motor iniciado',
+  'loading language traineddata':'Cargando idioma','loading language traineddata (from cache)':'Cargando idioma (guardado)',
+  'loaded language traineddata':'Idioma cargado','initializing api':'Preparando','initialized api':'Listo'
+};
+function tessLogger(m){
+  if(!m||!m.status) return;
+  const pct=Math.round((m.progress||0)*100);
+  if(m.status==='recognizing text'){
+    if(activeItem){
+      activeItem.progress=pct;
+      const bar=qList.querySelector(`.q-item[data-id="${activeItem.id}"] .q-bar i`);
+      if(bar) bar.style.width=pct+'%';
+    }
+    setEngine('busy',`Reconociendo… ${pct} %`);
+  }else{
+    setEngine('loading',(STATUS_ES[m.status]||m.status)+(m.progress&&m.progress<1?` ${pct} %`:''));
+  }
+}
+let workerP=null, workerKey='';
+async function createEngine(lang,refresh){
+  const langPath=await prepareLangs(lang);
+  setEngine('loading','Cargando idioma…');
+  log('info',`Cargando ${langName(lang)}${langPath?' desde la carpeta de la app':''}…`);
+  const opts={ logger:tessLogger, errorHandler:e=>log('error','Motor OCR: '+(e&&e.message||e)) };
+  if(ENV.engineSrc==='local'){ opts.workerPath=abs(CONFIG.local.worker); opts.corePath=abs(CONFIG.local.core); }
+  else{ opts.workerPath=tessBase+'worker.min.js'; opts.corePath=CONFIG.cdn.core; }
+  if(langPath) opts.langPath=langPath;
+  if(refresh) opts.cacheMethod='refresh';
+  const w=await withTimeout(Tesseract.createWorker(lang,1,opts),CONFIG.loadTimeoutMs,'la carga del idioma tardó demasiado');
+  if(!langPath){
+    lang.split('+').filter(c=>!ENV.localLangs.has(c)).forEach(c=>ENV.browserLangs.add(c));
+    store.set('browserLangs',[...ENV.browserLangs]); renderLangSelect();
+  }
+  return w;
+}
+function getWorker(lang){
+  if(workerP && workerKey===lang) return workerP;
+  const prev=workerP; workerKey=lang;
+  const p=(async()=>{
+    if(prev){ try{ const w=await prev; log('info','Cambiando de idioma: reiniciando el motor…'); await w.terminate(); }catch{} }
+    await ensureTesseract();
+    let w;
+    try{ w=await createEngine(lang,false); }
+    catch(e){
+      if(e && e.timeout) throw e;
+      if(/no está instalado|no hay internet|No se pudo descargar/.test(e&&e.message||'')) throw e;
+      log('warn',`Fallo al cargar el idioma (${e&&e.message||e}). Reparando la copia guardada y reintentando…`);
+      w=await createEngine(lang,true);
+    }
+    log('ok',`Motor OCR listo · ${langName(lang)}`);
+    if(!running) setEngine('ready','Motor listo');
+    updateNetChip();
+    return w;
+  })();
+  workerP=p;
+  p.catch(e=>{
+    if(workerP===p){ workerP=null; workerKey=''; }
+    const m=(e&&e.message)||String(e);
+    setEngine('error','Motor no disponible');
+    log('error','No se pudo iniciar el motor OCR: '+m);
+    toast(m,'error');
+  });
+  return p;
+}
+async function resetWorker(){
+  const p=workerP; workerP=null; workerKey='';
+  if(p){ try{ (await p).terminate(); }catch{} }
+}
+$('engineRetry').onclick=e=>{ e.stopPropagation(); getWorker(settings.lang).then(()=>{ if(hasPending()&&settings.autoRun) runQueue(); }).catch(()=>{}); };
+
+/* ════════════════════════ PDF.JS ════════════════════════ */
+let pdfjsP=null, pdfAssets={cmaps:null,fonts:null};
+function getPdfJs(){
+  if(window.pdfjsLib && window.pdfjsLib.__ready) return Promise.resolve(window.pdfjsLib);
+  if(!pdfjsP){
+    pdfjsP=(async()=>{
+      const L=CONFIG.local;
+      const sources=[{lib:L.pdf,worker:L.pdfWorker,cmaps:L.cmaps,fonts:L.fonts,local:true}]
+        .concat(CONFIG.cdn.pdf.map(s=>({lib:s.lib,worker:s.worker,cmaps:s.base+'cmaps/',fonts:s.base+'standard_fonts/',local:false})));
+      for(const s of sources){
+        try{
+          if(!window.pdfjsLib) await loadScript(abs(s.lib));
+          if(window.pdfjsLib){
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc=abs(s.worker); window.pdfjsLib.__ready=true;
+            pdfAssets={cmaps:abs(s.cmaps),fonts:abs(s.fonts)};
+            log('info', s.local?'Lector de PDF cargado desde la carpeta de la app.':`Lector de PDF descargado de ${hostOf(s.lib)}.`);
+            return window.pdfjsLib;
+          }
+        }catch(e){ log('warn',`Lector de PDF no disponible en ${s.local?'la carpeta de la app':hostOf(s.lib)} (${e.message}).`); }
+      }
+      throw new Error('No se pudo cargar el lector de PDF.');
+    })();
+    pdfjsP.catch(()=>{ pdfjsP=null; });
+  }
+  return pdfjsP;
+}
+
+/* ════════════════════════ IMÁGENES ════════════════════════ */
+async function decodeImage(file){
+  try{ return await createImageBitmap(file,{imageOrientation:'from-image'}); }catch{}
+  try{ return await createImageBitmap(file); }catch{}
+  return await new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), im=new Image();
+    im.onload=()=>{ URL.revokeObjectURL(url); res(im); };
+    im.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('formato de imagen no reconocido o archivo dañado')); };
+    im.src=url;
+  });
+}
+const dims = b => [b.width||b.naturalWidth, b.height||b.naturalHeight];
+function rasterize(src,w,h,scale,rot){
+  const sw=Math.max(1,Math.round(w*scale)), sh=Math.max(1,Math.round(h*scale)), swap=rot%180!==0;
+  const c=document.createElement('canvas'); c.width=swap?sh:sw; c.height=swap?sw:sh;
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);   // fondo blanco: evita que la transparencia se lea como negro
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.translate(c.width/2,c.height/2); ctx.rotate(rot*Math.PI/180);
+  ctx.drawImage(src,-sw/2,-sh/2,sw,sh);
+  return c;
+}
+function ocrScale(w,h){
+  const mx=Math.max(w,h), mn=Math.min(w,h);
+  let s = mn<1200 ? 1200/mn : 1;
+  s=Math.min(s,3, 3400/mx);
+  return Math.max(s,0.05);
+}
+function enhance(c){
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  const img=ctx.getImageData(0,0,c.width,c.height), d=img.data, n=d.length/4, hist=new Uint32Array(256);
+  for(let i=0;i<d.length;i+=4){ const y=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8; d[i]=y; hist[y]++; }
+  let lo=0, hi=255, acc=0; const cut=n*0.01;
+  while(lo<254 && (acc+=hist[lo])<cut) lo++;
+  acc=0; while(hi>1 && (acc+=hist[hi])<cut) hi--;
+  if(hi-lo<24){ lo=0; hi=255; }
+  const lut=new Uint8ClampedArray(256), r=255/(hi-lo);
+  for(let i=0;i<256;i++) lut[i]=(i-lo)*r;
+  for(let i=0;i<d.length;i+=4){ const v=lut[d[i]]; d[i]=d[i+1]=d[i+2]=v; }
+  ctx.putImageData(img,0,0);
+}
+function thumbOf(src,w,h){
+  const c=rasterize(src,w,h,Math.min(1,140/Math.max(w,h)),0);
+  const url=c.toDataURL('image/jpeg',.75); c.width=c.height=0; return url;
+}
+
+/* ════════════════════════ COLA ════════════════════════ */
+const LABEL={pend:'En cola',run:'Procesando',ok:'Listo',error:'Error'};
+const confCls = c => c>=85?'hi':c>=65?'mid':'lo';
+const hasPending = () => [...items.values()].some(i=>i.status==='pend');
+
+function makeItem(o){
+  const id=++uid;
+  const it=Object.assign({id,key:SESSION+'-'+id,rot:0,status:'pend',conf:null,ms:null,via:null,progress:0,err:''},o);
+  items.set(id,it); itemEl(it); summary(); return it;
+}
+function itemEl(it){
+  let li=qList.querySelector(`.q-item[data-id="${it.id}"]`);
+  if(!li){
+    li=document.createElement('li'); li.dataset.id=it.id;
+    li.innerHTML=`<button class="q-thumb" data-q="view" title="Ver en grande"><img alt=""><span class="scan"></span></button>
+      <div class="q-info"><div class="q-name"></div><div class="q-meta"></div><div class="q-bar"><i></i></div></div>
+      <div class="q-actions">
+        <button class="mini" data-q="rot" title="Girar 90° y volver a leer">${icon('rotate')}</button>
+        <button class="mini" data-q="retry" title="Reprocesar">${icon('refresh')}</button>
+        <button class="mini" data-q="del" title="Quitar de la cola">${icon('x')}</button>
+      </div>`;
+    li.querySelector('img').src=it.thumb;
+    const nm=li.querySelector('.q-name'); nm.textContent=it.name; nm.title=it.name;
+    qList.appendChild(li);
+  }
+  li.className='q-item '+it.status;
+  li.querySelector('img').style.transform=it.rot?`rotate(${it.rot}deg)`:'';
+  const kind = it.via==='pdf'?'TEXTO PDF':(it.src.type==='pdf'?'PDF':'IMG');
+  let meta=`<span class="tag">${kind}</span>`;
+  if(it.status==='ok'){
+    meta+= it.via==='pdf' ? '<span class="tag ok">✓ exacto</span>' : `<span class="tag ${confCls(it.conf)}">${Math.round(it.conf)} %</span>`;
+    meta+=`<span class="tag">${(it.ms/1000).toFixed(1)} s</span>`;
+  }else meta+=`<span class="tag ${it.status}">${LABEL[it.status]}</span>`;
+  if(it.rot) meta+=`<span class="tag">↻ ${it.rot}°</span>`;
+  li.querySelector('.q-meta').innerHTML=meta;
+  li.querySelector('.q-bar i').style.width=(it.status==='run'?it.progress:0)+'%';
+  li.title = it.status==='error' ? 'Error: '+it.err : '';
+  const busy=it.status==='run';
+  li.querySelector('[data-q="rot"]').disabled=busy;
+  li.querySelector('[data-q="del"]').disabled=busy;
+  li.querySelector('[data-q="retry"]').disabled=busy;
+  return li;
+}
+function summary(){
+  const all=[...items.values()], done=all.filter(i=>i.status==='ok'||i.status==='error').length;
+  $('queueCount').textContent=all.length;
+  $('gFill').style.width = all.length ? (done/all.length*100)+'%' : '0%';
+  $('queueStat').textContent=`${done} / ${all.length}`;
+  $('gBar').classList.toggle('active',running);
+  document.title = running ? `(${done}/${all.length}) LUMEN OCR` : BASE_TITLE;
+}
+function updateStats(){
+  const ok=[...items.values()].filter(i=>i.status==='ok'), ocr=ok.filter(i=>i.via==='ocr');
+  $('stItems').textContent=ok.length;
+  $('stConf').textContent = ocr.length ? Math.round(ocr.reduce((a,i)=>a+i.conf,0)/ocr.length)+' %' : '—';
+  $('stTime').textContent = (ok.reduce((a,i)=>a+(i.ms||0),0)/1000).toFixed(1)+' s';
+}
+function releaseDoc(doc){
+  if(!doc || [...items.values()].some(i=>i.src.doc===doc)) return;
+  pdfDocs.delete(doc); try{ doc.destroy(); }catch{}
+}
+function removeItem(it){
+  items.delete(it.id);
+  qList.querySelector(`.q-item[data-id="${it.id}"]`)?.remove();
+  if(it.src.type==='pdf') releaseDoc(it.src.doc);
+  summary(); updateStats();
+  log('info',`Quitado de la cola: ${it.name}`);
+}
+function retryItem(it){
+  it.status='pend'; it.progress=0; itemEl(it); summary();
+  log('info',`Reprocesando: ${it.name}`);
+  if(!running) runQueue();
+}
+const autoRunSoon = debounce(()=>{ if(!running && settings.autoRun && hasPending()) runQueue(); },1100);
+function rotateItem(it){
+  it.rot=(it.rot+90)%360;
+  if(it.status!=='pend') it.status='pend';
+  it.progress=0; itemEl(it); summary();
+  if(settings.autoRun) autoRunSoon();
+}
+qList.addEventListener('click',e=>{
+  const b=e.target.closest('[data-q]'); if(!b||b.disabled) return;
+  const it=items.get(+b.closest('.q-item').dataset.id); if(!it) return;
+  const a=b.dataset.q;
+  if(a==='view') return openPreview(it);
+  if(it.status==='run'){ toast('Ese elemento se está procesando ahora mismo','warn'); return; }
+  if(a==='del') removeItem(it);
+  else if(a==='rot') rotateItem(it);
+  else if(a==='retry') retryItem(it);
+});
+function clearQueue(silent){
+  items.clear(); qList.innerHTML='';
+  pdfDocs.forEach(d=>{ try{ d.destroy(); }catch{} }); pdfDocs.clear();
+  summary(); updateStats();
+  if(!silent) log('warn','Cola vaciada.');
+}
+$('btnClearQueue').onclick=()=>{
+  if(running){ toast('Detén el proceso antes de vaciar la cola','warn'); return; }
+  if(!items.size) return;
+  clearQueue();
+};
+
+/* ════════════════════════ INGESTA DE ARCHIVOS ════════════════════════ */
+const IMG_EXT=/\.(jpe?g|png|webp|bmp|gif|avif|ico)$/i;
+function maybeAutoRun(){ if(settings.autoRun && !running && hasPending()) runQueue(); }
+
+async function addImageFile(file,g){
+  try{
+    if(file.size>60*1024*1024) log('warn',`«${file.name}» pesa ${(file.size/1048576).toFixed(0)} MB; puede ir lento.`);
+    const bmp=await decodeImage(file);
+    if(g!==gen) return;
+    const [w,h]=dims(bmp);
+    if(!w||!h) throw new Error('la imagen está vacía');
+    const thumb=thumbOf(bmp,w,h);
+    if(bmp.close) bmp.close();
+    makeItem({name:file.name||'imagen',src:{type:'image',file},thumb});
+    log('info',`Imagen añadida: ${file.name} (${w}×${h} px)`);
+    if(Math.min(w,h)<600) log('warn',`«${file.name}» tiene poca resolución; la precisión puede bajar.`);
+    maybeAutoRun();
+  }catch(e){
+    log('error',`No se pudo leer la imagen «${file.name}»: ${e.message}`);
+    toast(`No se pudo leer «${file.name}»`,'error');
+  }
+}
+async function addPdfFile(file,g){
+  try{
+    const pdf=await getPdfJs();
+    const task=pdf.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,cMapUrl:pdfAssets.cmaps,cMapPacked:true,standardFontDataUrl:pdfAssets.fonts});
+    task.onPassword=(update,reason)=>{
+      const pw=prompt(reason===2?'Contraseña incorrecta. Inténtalo de nuevo:':`«${file.name}» está protegido. Escribe la contraseña:`);
+      if(pw===null) task.destroy(); else update(pw);
+    };
+    const doc=await task.promise;
+    if(g!==gen){ doc.destroy(); return; }
+    pdfDocs.add(doc);
+    let n=doc.numPages;
+    if(n>CONFIG.maxPdfPages){ log('warn',`«${file.name}» tiene ${n} páginas; se añadirán las primeras ${CONFIG.maxPdfPages}.`); n=CONFIG.maxPdfPages; }
+    log('info',`PDF: ${file.name} (${doc.numPages} pág.) → preparando páginas…`);
+    for(let p=1;p<=n;p++){
+      if(g!==gen) return;
+      const page=await doc.getPage(p);
+      try{
+        const vp0=page.getViewport({scale:1});
+        const s=Math.min(1,140/Math.max(vp0.width,vp0.height));
+        const vp=page.getViewport({scale:s});
+        const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(vp.width)); c.height=Math.max(1,Math.round(vp.height));
+        const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+        await page.render({canvasContext:ctx,viewport:vp}).promise;
+        const thumb=c.toDataURL('image/jpeg',.75); c.width=c.height=0;
+        if(g!==gen) return;
+        makeItem({name:`${file.name} · pág. ${p}/${doc.numPages}`,src:{type:'pdf',doc,page:p},thumb});
+      }finally{ page.cleanup(); }
+      if(p===1) maybeAutoRun();
+    }
+    log('ok',`${n} página(s) de «${file.name}» en la cola.`);
+    maybeAutoRun();
+  }catch(e){
+    const pw=e&&e.name==='PasswordException';
+    log('error',`No se pudo abrir el PDF «${file.name}»: ${pw?'protegido con contraseña':e.message}`);
+    toast(pw?'PDF protegido: no se abrió':'PDF ilegible o dañado','error');
+  }
+}
+async function addFiles(list){
+  list=[...list].filter(Boolean);
+  if(!list.length) return;
+  const g=gen;
+  for(const f of list){
+    if(g!==gen) return;
+    const type=(f.type||'').toLowerCase(), name=f.name||'';
+    if(/\.(heic|heif)$/i.test(name)||/hei[cf]/.test(type)){
+      log('warn',`«${name}» es HEIC (formato de iPhone) y el navegador no puede leerlo. Expórtala como JPG.`);
+      toast('Formato HEIC no compatible: conviértelo a JPG','warn'); continue;
+    }
+    if(type==='application/pdf'||/\.pdf$/i.test(name)) await addPdfFile(f,g);
+    else if(type.startsWith('image/')||IMG_EXT.test(name)) await addImageFile(f,g);
+    else log('warn',`Formato no compatible, se omite: ${name}`);
+  }
+}
+function pastedImage(f){
+  const ext=((f.type||'image/png').split('/')[1]||'png').replace('jpeg','jpg');
+  addFiles([new File([f],`captura-${hhmmss().replace(/:/g,'')}.${ext}`,{type:f.type||'image/png'})]);
+  toast('Captura recibida, añadida a la cola','info');
+}
+
+/* entradas */
+const dz=$('dropzone');
+dz.addEventListener('click',e=>{ if(!e.target.closest('button')) $('fileInput').click(); });
+dz.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target===dz){ e.preventDefault(); $('fileInput').click(); } });
+$('btnUpload').onclick=e=>{ e.stopPropagation(); $('fileInput').click(); };
+$('btnCamera').onclick=e=>{ e.stopPropagation(); $('camInput').click(); };
+$('fileInput').onchange=e=>{ addFiles(e.target.files); e.target.value=''; };
+$('camInput').onchange=e=>{ addFiles(e.target.files); e.target.value=''; };
+
+/* arrastrar en toda la ventana */
+let dragDepth=0;
+const hasFiles=e=>[...(e.dataTransfer&&e.dataTransfer.types||[])].includes('Files');
+document.addEventListener('dragenter',e=>{ if(!hasFiles(e)) return; e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+document.addEventListener('dragleave',e=>{ if(!hasFiles(e)) return; dragDepth=Math.max(0,dragDepth-1); if(!dragDepth) document.body.classList.remove('dragging'); });
+document.addEventListener('dragover',e=>{ if(hasFiles(e)){ e.preventDefault(); e.dataTransfer.dropEffect='copy'; } });
+document.addEventListener('drop',e=>{
+  if(!hasFiles(e)) return;
+  e.preventDefault(); dragDepth=0; document.body.classList.remove('dragging');
+  addFiles(e.dataTransfer.files);
+});
+
+/* pegar */
+editor.addEventListener('paste',e=>{
+  const cd=e.clipboardData; if(!cd) return;
+  const img=[...cd.items].find(i=>i.kind==='file'&&i.type.startsWith('image/'));
+  e.preventDefault(); e.stopPropagation();
+  if(img){ const f=img.getAsFile(); if(f) pastedImage(f); return; }
+  const t=cd.getData('text/plain');
+  if(t) document.execCommand('insertText',false,t);   // texto limpio, sin estilos ajenos
+});
+document.addEventListener('paste',e=>{
+  if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,#editor')) return;
+  const img=[...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.kind==='file'&&i.type.startsWith('image/'));
+  if(img){ e.preventDefault(); const f=img.getAsFile(); if(f) pastedImage(f); }
+});
+
+/* ════════════════════════ PROCESAMIENTO ════════════════════════ */
+async function canvasFor(it,maxSide){
+  if(it.src.type==='image'){
+    const bmp=await decodeImage(it.src.file);
+    const [w,h]=dims(bmp);
+    const s = maxSide ? Math.min(1,maxSide/Math.max(w,h)) : ocrScale(w,h);
+    const c=rasterize(bmp,w,h,s,it.rot);
+    if(bmp.close) bmp.close();
+    return c;
+  }
+  const page=await it.src.doc.getPage(it.src.page);
+  try{
+    const rotation=((page.rotate||0)+it.rot)%360;
+    const base=page.getViewport({scale:1,rotation});
+    let s;
+    if(maxSide) s=maxSide/Math.max(base.width,base.height);
+    else{ s=Math.min(4,Math.max(1,1900/Math.min(base.width,base.height))); s=Math.min(s,3600/Math.max(base.width,base.height)); }
+    const vp=page.getViewport({scale:s,rotation});
+    const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(vp.width)); c.height=Math.max(1,Math.round(vp.height));
+    const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+    await page.render({canvasContext:ctx,viewport:vp}).promise;
+    return c;
+  }finally{ page.cleanup(); }
+}
+async function pdfNativeText(it){
+  const page=await it.src.doc.getPage(it.src.page);
+  try{
+    const tc=await page.getTextContent();
+    let s='';
+    for(const x of tc.items){ if(typeof x.str!=='string') continue; s+=x.str; if(x.hasEOL) s+='\n'; }
+    s=s.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+    return s.replace(/\s/g,'').length>=25 ? s : null;
+  }finally{ page.cleanup(); }
+}
+function textToHtml(t){
+  const clean=(t||'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').trim();
+  if(!clean) return '<p class="empty-note"><em>(No se detectó texto en este elemento)</em></p>';
+  return clean.split(/\n{2,}/).map(p=>`<p>${esc(p).replace(/\n/g,'<br>')}</p>`).join('');
+}
+function putResult(it){
+  const metaTxt = (it.via==='pdf'?'texto nativo del PDF':`${Math.round(it.conf)} % confianza`)+` · ${(it.ms/1000).toFixed(1)} s`;
+  const html=(settings.headers?`<p class="src" contenteditable="false">${esc(it.name)} — ${metaTxt}</p>`:'')+textToHtml(it.text);
+  let block=editor.querySelector(`.ocr-block[data-item="${it.key}"]`);
+  if(block) block.innerHTML=html;
+  else{
+    block=document.createElement('div'); block.className='ocr-block'; block.dataset.item=it.key; block.innerHTML=html;
+    editor.appendChild(block);
+  }
+  block.classList.remove('flash'); void block.offsetWidth; block.classList.add('flash');
+  scheduleCount(); scheduleSave();
+}
+async function processItem(it){
+  const g=gen;
+  it.status='run'; it.progress=0; it.err=''; activeItem=it; itemEl(it); summary();
+  const t0=performance.now();
+  let canvas=null;
+  try{
+    let text=null, conf=null, via='ocr';
+    if(it.src.type==='pdf' && settings.pdfText && !it.rot){
+      text=await pdfNativeText(it);
+      if(text!=null){ conf=100; via='pdf'; }
+    }
+    if(text==null){
+      canvas=await canvasFor(it);
+      if(settings.enhance) enhance(canvas);
+      if(g!==gen) return;
+      const w=await getWorker(settings.lang);
+      if(g!==gen) return;
+      await w.setParameters({tessedit_pageseg_mode:String(settings.psm),preserve_interword_spaces:'1'});
+      const {data}=await withTimeout(w.recognize(canvas),CONFIG.recognizeTimeoutMs,'el reconocimiento tardó demasiado');
+      text=data.text||''; conf=data.confidence||0;
+    }
+    if(g!==gen) return;
+    it.ms=performance.now()-t0; it.text=text; it.conf=conf; it.via=via; it.status='ok';
+    putResult(it);
+    if(via==='pdf') log('ok',`✔ ${it.name} — texto nativo extraído al instante`);
+    else{
+      log('ok',`✔ ${it.name} — ${Math.round(conf)} % de confianza, ${(it.ms/1000).toFixed(1)} s`);
+      if(conf<60) log('warn',`Confianza baja en «${it.name}». Prueba a girarla, cambiar el tipo de página o usar una foto más nítida.`);
+    }
+  }catch(e){
+    if(g!==gen) return;
+    it.status='error'; it.err=(e&&e.message)||String(e);
+    log('error',`✘ ${it.name}: ${it.err}`);
+    if(e&&e.timeout){ log('warn','Reiniciando el motor por seguridad…'); await resetWorker(); }
+  }finally{
+    if(canvas){ canvas.width=canvas.height=0; }
+    if(activeItem===it) activeItem=null;
+    if(g===gen && items.has(it.id)){ itemEl(it); summary(); updateStats(); }
+  }
+}
+function setRunBtn(on){
+  const b=$('btnRun');
+  b.innerHTML=icon(on?'stop':'play')+`<span>${on?'Detener':'Procesar'}</span>`;
+  b.classList.toggle('btn-primary',!on); b.classList.toggle('btn-danger',on);
+}
+async function runQueue(manual=false){
+  if(running) return;
+  if(!hasPending()){
+    const errs=[...items.values()].filter(i=>i.status==='error');
+    if(manual && errs.length){ errs.forEach(i=>{ i.status='pend'; itemEl(i); }); }
+    else{
+      if(manual) toast(items.size?'Todo está procesado. Usa ↻ en un elemento para repetirlo.':'Añade primero una foto o un PDF','warn');
+      return;
+    }
+  }
+  const g=gen;
+  running=true; stopReq=false; setRunBtn(true); summary(); keepAwake(true);
+  let ok=0, err=0; const t0=performance.now();
+  log('sys',`Iniciando extracción · idioma ${settings.lang} · tipo de página ${settings.psm}`);
+  while(!stopReq && g===gen){
+    const it=[...items.values()].find(i=>i.status==='pend');
+    if(!it) break;
+    await processItem(it);
+    if(it.status==='ok') ok++; else if(it.status==='error') err++;
+    await sleep(0);
+  }
+  running=false; activeItem=null; setRunBtn(false); summary(); keepAwake(false);
+  if(workerP) setEngine('ready','Motor listo'); else if($('engineChip').dataset.state!=='error') setEngine('idle','Motor en espera');
+  if(g!==gen){ if(settings.autoRun && hasPending()) setTimeout(runQueue,0); return; }
+  updateStats();
+  const secs=((performance.now()-t0)/1000).toFixed(1);
+  if(stopReq){ log('warn','Proceso detenido por el usuario.'); toast('Proceso detenido','warn'); return; }
+  const msg=`Terminado: ${ok} correcto(s)${err?`, ${err} con error`:''} en ${secs} s.`;
+  if(ok||err){ log(err&&!ok?'error':'ok',msg); toast(msg,err&&!ok?'error':(err?'warn':'ok')); }
+}
+$('btnRun').onclick=()=>{
+  if(running){ stopReq=true; toast('Se detendrá al terminar el elemento actual…','warn'); }
+  else runQueue(true);
+};
+
+/* mantener la pantalla encendida mientras procesa */
+let wakeLock=null;
+async function keepAwake(on){
+  try{
+    if(on && 'wakeLock' in navigator && !wakeLock){
+      wakeLock=await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release',()=>{ wakeLock=null; });
+    }else if(!on && wakeLock){ await wakeLock.release(); wakeLock=null; }
+  }catch{}
+}
+
+/* ════════════════════════ TEXTO DEL DOCUMENTO ════════════════════════ */
+const BLOCK=/^(P|DIV|H[1-6]|LI|UL|OL|BLOCKQUOTE|PRE|TR|TABLE|SECTION)$/;
+function nodeText(root,headers=true){
+  let out='';
+  (function walk(n){
+    for(const c of n.childNodes){
+      if(c.nodeType===3){ out+=c.nodeValue.replace(/\u00a0/g,' '); continue; }
+      if(c.nodeType!==1) continue;
+      if(!headers && c.classList.contains('src')) continue;
+      const tag=c.tagName;
+      if(tag==='BR'){ out+='\n'; continue; }
+      const block=BLOCK.test(tag);
+      if(block && out && !out.endsWith('\n')) out+='\n';
+      if(tag==='LI'){
+        const par=c.parentElement;
+        out += par&&par.tagName==='OL' ? `${[...par.children].indexOf(c)+1}. ` : '• ';
+      }
+      walk(c);
+      if(block){
+        if(!out.endsWith('\n')) out+='\n';
+        if(tag==='P'||c.classList.contains('ocr-block')) out+='\n';
+      }
+    }
+  })(root);
+  return out.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+const docText = (headers=true) => nodeText(editor,headers);
+function updateCounts(){
+  const t=docText(true);
+  $('stWords').textContent=(t?t.split(/\s+/).filter(Boolean).length:0).toLocaleString('es');
+  $('stChars').textContent=t.length.toLocaleString('es');
+}
+const scheduleCount=debounce(updateCounts,250);
+editor.addEventListener('input',()=>{
+  if(!editor.textContent.trim() && !editor.querySelector('img,li,table')) editor.innerHTML='';
+  scheduleCount(); scheduleSave();
+});
+
+/* ════════════════════════ AUTOGUARDADO ════════════════════════ */
+function setSave(s,txt){ $('saveState').dataset.s=s; $('saveTxt').textContent=txt; }
+function saveNow(){
+  const html=editor.innerHTML;
+  if(!html.trim()){ store.del('doc'); setSave('saved','Todo se procesa en tu equipo'); return; }
+  const ok=store.set('doc',{html,title:$('docTitle').value,ts:Date.now(),v:VERSION});
+  setSave(ok?'saved':'fail', ok?`Autoguardado ${hhmmss().slice(0,5)}`:'No se pudo autoguardar (memoria del navegador llena)');
+}
+const saveSoon=debounce(saveNow,800);
+function scheduleSave(){ setSave('dirty','Guardando…'); saveSoon(); }
+$('docTitle').addEventListener('input',scheduleSave);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden') saveNow();
+  else if(running) keepAwake(true);
+});
+window.addEventListener('pagehide',saveNow);
+window.addEventListener('beforeunload',e=>{ saveNow(); if(running){ e.preventDefault(); e.returnValue=''; } });
+
+function sanitize(html){
+  const t=document.createElement('template'); t.innerHTML=html;
+  t.content.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(n=>n.remove());
+  t.content.querySelectorAll('*').forEach(el=>{
+    [...el.attributes].forEach(a=>{ if(/^on/i.test(a.name)||/javascript:/i.test(a.value)) el.removeAttribute(a.name); });
+  });
+  return t.innerHTML;
+}
+
+/* ════════════════════════ BARRA DE FORMATO ════════════════════════ */
+let savedRange=null;
+document.addEventListener('selectionchange',()=>{
+  const s=getSelection();
+  if(s.rangeCount && editor.contains(s.anchorNode)){
+    savedRange=s.getRangeAt(0).cloneRange();
+    if(document.activeElement===editor) refreshToolbar();
+  }
+});
+function restoreSel(){
+  editor.focus({preventScroll:true});
+  if(savedRange && editor.contains(savedRange.startContainer)){
+    const s=getSelection(); s.removeAllRanges(); s.addRange(savedRange);
+  }
+}
+function cmd(c,v=null){
+  restoreSel();
+  try{ document.execCommand('styleWithCSS',false,true); }catch{}
+  document.execCommand(c,false,v);
+  refreshToolbar(); scheduleCount(); scheduleSave();
+}
+function refreshToolbar(){
+  ['bold','italic','underline','strikeThrough','insertUnorderedList','insertOrderedList','justifyLeft','justifyCenter','justifyRight','justifyFull'].forEach(c=>{
+    const b=document.querySelector(`.tb[data-cmd="${c}"]`); if(!b) return;
+    try{ b.classList.toggle('on',document.queryCommandState(c)); }catch{}
+  });
+}
+$('toolbar').addEventListener('mousedown',e=>{ if(e.target.closest('.tb')) e.preventDefault(); });
+$('toolbar').addEventListener('click',e=>{ const b=e.target.closest('.tb[data-cmd]'); if(b) cmd(b.dataset.cmd); });
+$('fontSel').onchange=e=>{ if(e.target.value) cmd('fontName',e.target.value); e.target.value=''; };
+$('sizeSel').onchange=e=>{ if(e.target.value) cmd('fontSize',e.target.value); e.target.value=''; };
+$('foreCol').addEventListener('change',e=>{ $('swFore').style.background=e.target.value; cmd('foreColor',e.target.value); });
+$('hilCol').addEventListener('change',e=>{ $('swHil').style.background=e.target.value; cmd('hiliteColor',e.target.value); });
+
+/* ════════════════════════ HERRAMIENTAS DE TEXTO ════════════════════════ */
+let snap=null;
+function takeSnap(){ snap=editor.innerHTML; }
+function undoSnap(){ if(snap==null) return; editor.innerHTML=snap; snap=null; scheduleCount(); scheduleSave(); toast('Cambio deshecho','info'); }
+function textNodes(skipHeaders=true){
+  const tw=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT), out=[];
+  while(tw.nextNode()){ const n=tw.currentNode; if(skipHeaders && n.parentElement && n.parentElement.closest('.src')) continue; out.push(n); }
+  return out;
+}
+function runTool(kind){
+  if(['upper','lower','sentence'].includes(kind)){
+    restoreSel();
+    const s=getSelection(), t=s.toString();
+    if(!t){ toast('Selecciona primero el texto que quieres cambiar','warn'); return; }
+    let r = kind==='upper'?t.toLocaleUpperCase('es'):kind==='lower'?t.toLocaleLowerCase('es')
+      : t.toLocaleLowerCase('es').replace(/(^\s*|[.!?¡¿]\s+)(\p{L})/gu,(m,a,b)=>a+b.toLocaleUpperCase('es'));
+    document.execCommand('insertText',false,r); scheduleCount(); scheduleSave(); return;
+  }
+  if(!editor.textContent.trim()){ toast('El documento está vacío','warn'); return; }
+  takeSnap(); let n=0;
+  if(kind==='join'){
+    editor.querySelectorAll('p:not(.src)').forEach(p=>{
+      if(!p.querySelector('br')) return;
+      const t=nodeText(p);
+      const r=t.replace(/(\p{L})[-‐‑]\n(\p{Ll})/gu,'$1$2').replace(/([^.!?:;…\n])\n(?!\n)/g,'$1 ').replace(/ {2,}/g,' ');
+      if(r!==t){ p.innerHTML=esc(r).replace(/\n/g,'<br>'); n++; }
+    });
+  }else if(kind==='spaces'){
+    textNodes().forEach(tn=>{
+      const v=tn.nodeValue, r=v.replace(/[ \t\u00a0]{2,}/g,' ').replace(/ +([,.;:!?)\]»])/g,'$1').replace(/([(\[«¿¡]) +/g,'$1');
+      if(r!==v){ tn.nodeValue=r; n++; }
+    });
+  }else if(kind==='headers'){
+    editor.querySelectorAll('.src').forEach(h=>{ h.remove(); n++; });
+  }
+  if(!n){ snap=null; toast('No había nada que corregir','info'); return; }
+  scheduleCount(); scheduleSave();
+  toast(`Listo: ${n} cambio(s) aplicados`,'ok',{label:'Deshacer',run:undoSnap});
+}
+$('toolsMenu').addEventListener('click',e=>{ const b=e.target.closest('[data-tool]'); if(b){ closeMenus(); runTool(b.dataset.tool); } });
+
+/* ════════════════════════ BUSCAR Y REEMPLAZAR ════════════════════════ */
+let findPos=0;
+function findRe(){
+  const q=$('findIn').value; if(!q) return null;
+  return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),$('findCase').checked?'g':'gi');
+}
+function findMatches(){
+  const re=findRe(); if(!re) return [];
+  const out=[];
+  for(const tn of textNodes()){ re.lastIndex=0; let m; while((m=re.exec(tn.nodeValue))){ out.push({node:tn,start:m.index,end:m.index+m[0].length}); if(!m[0].length) re.lastIndex++; } }
+  return out;
+}
+function updateFindCount(){
+  const n=$('findIn').value?findMatches().length:0;
+  $('findCount').textContent=$('findIn').value?`${n} coincidencia${n===1?'':'s'}`:'';
+}
+function openFind(){
+  $('findBar').hidden=false;
+  const sel=getSelection().toString();
+  if(sel && sel.length<80 && !sel.includes('\n')) $('findIn').value=sel;
+  $('findIn').focus(); $('findIn').select(); updateFindCount();
+}
+function findNext(){
+  const ms=findMatches();
+  if(!ms.length){ toast('Sin coincidencias','warn'); return; }
+  const m=ms[findPos%ms.length]; findPos++;
+  const r=document.createRange(); r.setStart(m.node,m.start); r.setEnd(m.node,m.end);
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r); savedRange=r.cloneRange();
+  m.node.parentElement.scrollIntoView({block:'center',behavior:'smooth'});
+  $('findCount').textContent=`${((findPos-1)%ms.length)+1} de ${ms.length}`;
+}
+function replaceAll(){
+  const re=findRe(); if(!re){ toast('Escribe qué quieres buscar','warn'); return; }
+  const rep=$('replIn').value; takeSnap(); let n=0;
+  textNodes().forEach(tn=>{ const v=tn.nodeValue, r=v.replace(re,()=>{ n++; return rep; }); if(r!==v) tn.nodeValue=r; });
+  if(!n){ snap=null; toast('Sin coincidencias','warn'); return; }
+  scheduleCount(); scheduleSave(); updateFindCount();
+  toast(`${n} reemplazo(s) hechos`,'ok',{label:'Deshacer',run:()=>{ undoSnap(); updateFindCount(); }});
+}
+$('btnFind').onclick=openFind;
+$('findIn').addEventListener('input',()=>{ findPos=0; updateFindCount(); });
+$('findCase').addEventListener('change',()=>{ findPos=0; updateFindCount(); });
+$('findIn').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); findNext(); } });
+$('replIn').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); replaceAll(); } });
+$('btnFindNext').onclick=findNext;
+$('btnReplAll').onclick=replaceAll;
+$('btnFindClose').onclick=()=>{ $('findBar').hidden=true; };
+
+/* ════════════════════════ COPIAR / PEGAR / EXPORTAR ════════════════════════ */
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }
+  catch{
+    const ta=document.createElement('textarea'); ta.value=t; ta.style.cssText='position:fixed;left:-9999px;top:0';
+    document.body.appendChild(ta); ta.select();
+    let ok=false; try{ ok=document.execCommand('copy'); }catch{}
+    ta.remove(); return ok;
+  }
+}
+async function copyAll(){
+  const t=docText(true);
+  if(!t){ toast('No hay texto que copiar','warn'); return; }
+  if(await copyText(t)){ toast('Texto copiado al portapapeles'); log('ok',`Copiados ${t.length} caracteres.`); }
+  else toast('El navegador no permitió copiar','error');
+}
+async function pasteFromClipboard(){
+  try{
+    if(navigator.clipboard && navigator.clipboard.read){
+      const list=await navigator.clipboard.read();
+      for(const ci of list){
+        const type=ci.types.find(t=>t.startsWith('image/'));
+        if(type){ pastedImage(await ci.getType(type)); return; }
+      }
+    }
+  }catch{}
+  try{
+    const t=await navigator.clipboard.readText();
+    if(!t){ toast('El portapapeles está vacío','warn'); return; }
+    restoreSel(); document.execCommand('insertText',false,t);
+    scheduleCount(); scheduleSave(); log('info',`Pegados ${t.length} caracteres.`);
+  }catch{ toast('El navegador bloqueó el portapapeles: usa Ctrl+V','warn'); }
+}
+const docTitle = () => $('docTitle').value.trim() || 'Documento extraído';
+function stamp(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; }
+function docHtml(){
+  const c=editor.cloneNode(true);
+  c.querySelectorAll('[contenteditable]').forEach(e=>e.removeAttribute('contenteditable'));
+  c.querySelectorAll('.ocr-block').forEach(e=>{ e.removeAttribute('data-item'); e.classList.remove('flash'); });
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(docTitle())}</title>
+<style>body{font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.6;color:#111;max-width:760px;margin:32px auto;padding:0 24px}
+h1{font-size:20pt;margin:0 0 18px}.src{font-family:Arial,sans-serif;font-size:8.5pt;color:#8a6d1f;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #ddd;padding-bottom:4px;margin:0 0 10px}
+.ocr-block{margin-bottom:22px;padding-bottom:12px;border-bottom:1px dashed #ddd}.ocr-block:last-child{border-bottom:none}p{margin:0 0 10px}@page{margin:2cm}</style></head>
+<body><h1>${esc(docTitle())}</h1>${c.innerHTML}</body></html>`;
+}
+function printDoc(){
+  const f=document.createElement('iframe');
+  f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(f);
+  const cleanup=()=>setTimeout(()=>f.remove(),500);
+  f.onload=()=>{
+    try{
+      f.contentWindow.addEventListener('afterprint',cleanup);
+      f.contentWindow.focus(); f.contentWindow.print();
+    }catch(e){ toast('No se pudo abrir la impresión','error'); cleanup(); }
+    setTimeout(()=>{ if(f.isConnected) f.remove(); },120000);
+  };
+  f.srcdoc=docHtml();
+  log('info','Abriendo impresión (elige «Guardar como PDF» para obtener un PDF).');
+}
+function download(fmt){
+  if(!editor.textContent.trim()){ toast('No hay nada que descargar todavía','warn'); return; }
+  if(fmt==='print') return printDoc();
+  const base=`${docTitle().replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,'-').slice(0,80)||'documento'}_${stamp()}`;
+  let blob;
+  if(fmt==='txt') blob=new Blob(['\ufeff'+docText(true).replace(/\n/g,'\r\n')],{type:'text/plain;charset=utf-8'});
+  else if(fmt==='doc') blob=new Blob(['\ufeff',docHtml()],{type:'application/msword'});
+  else blob=new Blob([docHtml()],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${base}.${fmt}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast(`Descargado ${base}.${fmt}`); log('ok',`Documento descargado como .${fmt}`);
+}
+async function shareText(){
+  const t=docText(true);
+  if(!t){ toast('No hay texto que compartir','warn'); return; }
+  if(navigator.share){
+    try{ await navigator.share({title:docTitle(),text:t}); log('ok','Texto compartido.'); }
+    catch(e){ if(e.name!=='AbortError'){ log('warn','No se pudo compartir: '+e.message); await copyAll(); } }
+  }else{ await copyAll(); toast('Compartir no está disponible aquí: texto copiado','info'); }
+}
+$('btnCopy').onclick=copyAll;
+$('btnPaste').onclick=pasteFromClipboard;
+$('btnDownload').onclick=()=>download('txt');
+$('dlMenu').addEventListener('click',e=>{ const b=e.target.closest('[data-fmt]'); if(b){ closeMenus(); download(b.dataset.fmt); } });
+$('btnShare').onclick=shareText;
+
+/* ════════════════════════ MENÚS Y VENTANAS ════════════════════════ */
+function closeMenus(){ document.querySelectorAll('.menu.open').forEach(m=>m.classList.remove('open')); }
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-menu]');
+  if(t){
+    const m=$(t.dataset.menu), open=m.classList.contains('open');
+    closeMenus(); if(!open) m.classList.add('open'); return;
+  }
+  if(!e.target.closest('.menu')) closeMenus();
+});
+function openModal(id){ $(id).hidden=false; const f=$(id).querySelector('[data-close],button'); if(f) f.focus(); }
+function closeModal(id){ if($(id).hidden) return; $(id).hidden=true; if(id==='mPreview') endPreview(); }
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o || e.target.closest('[data-close]')) closeModal(o.id); });
+});
+$('btnHelp').onclick=()=>openModal('mHelp');
+$('btnClearAll').onclick=()=>openModal('mClear');
+$('mClearOk').onclick=()=>{
+  closeModal('mClear');
+  gen++; stopReq=false; activeItem=null;
+  clearQueue(true);
+  editor.innerHTML=''; $('docTitle').value='Documento extraído'; store.del('doc');
+  logBody.innerHTML=''; nWarn=nErr=0; $('cWarn').textContent='0'; $('cErr').textContent='0';
+  snap=null; savedRange=null; $('findBar').hidden=true;
+  updateCounts(); updateStats(); setSave('saved','Todo se procesa en tu equipo');
+  log('sys','Sesión reiniciada: documento, cola y registro limpios.');
+  toast('Todo limpio');
+};
+
+/* vista previa */
+let pvItem=null, pvUrl=null, pvToken=0;
+function endPreview(){ pvToken++; if(pvUrl){ URL.revokeObjectURL(pvUrl); pvUrl=null; } $('pvImg').hidden=true; $('pvImg').removeAttribute('src'); pvItem=null; }
+async function openPreview(it){
+  endPreview(); pvItem=it; const tk=pvToken;
+  $('pvTitle').textContent=it.name; $('pvLoading').hidden=false; $('pvLoading').textContent='Generando vista previa…';
+  $('pvInfo').textContent = it.status==='ok' ? (it.via==='pdf'?'Texto nativo del PDF':`Confianza: ${Math.round(it.conf)} %`) : (it.status==='error'?'Error: '+it.err:LABEL[it.status]);
+  $('pvRotate').disabled=$('pvRedo').disabled = it.status==='run';
+  openModal('mPreview');
+  try{
+    const c=await canvasFor(it,1600);
+    const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.88)); c.width=c.height=0;
+    if(tk!==pvToken||!blob) return;
+    pvUrl=URL.createObjectURL(blob); $('pvImg').src=pvUrl; $('pvImg').hidden=false; $('pvLoading').hidden=true;
+  }catch(e){ if(tk===pvToken) $('pvLoading').textContent='No se pudo generar la vista previa: '+e.message; }
+}
+$('pvRotate').onclick=()=>{ const it=pvItem; if(!it||it.status==='run') return; rotateItem(it); openPreview(it); };
+$('pvRedo').onclick=()=>{ const it=pvItem; if(!it||it.status==='run') return; closeModal('mPreview'); retryItem(it); };
+
+/* ════════════════════════ REGISTRO: CONTROLES ════════════════════════ */
+document.querySelectorAll('.lf').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.lf').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); logBody.dataset.f=b.dataset.lf;
+});
+$('btnLogClear').onclick=()=>{ logBody.innerHTML=''; nWarn=nErr=0; $('cWarn').textContent='0'; $('cErr').textContent='0'; };
+$('btnLogCopy').onclick=async()=>{
+  const lines=[...logBody.querySelectorAll('.le')].map(e=>[...e.children].map(s=>s.textContent).join('  '));
+  if(!lines.length){ toast('El registro está vacío','warn'); return; }
+  toast(await copyText(lines.join('\n'))?'Registro copiado':'No se pudo copiar', 'ok');
+};
+$('btnLogToggle').onclick=()=>{
+  const p=$('logPanel'); p.classList.toggle('collapsed');
+  const c=p.classList.contains('collapsed');
+  $('btnLogToggle').textContent=c?'▴ expandir':'▾ contraer'; store.set('logCollapsed',c);
+};
+if(store.get('logCollapsed',false)){ $('logPanel').classList.add('collapsed'); $('btnLogToggle').textContent='▴ expandir'; }
+
+/* ════════════════════════ CONEXIÓN ════════════════════════ */
+function netState(){ updateNetChip(); return navigator.onLine; }
+window.addEventListener('online',()=>{ netState(); log('info','Conexión recuperada.'); if($('engineChip').dataset.state==='error') getWorker(settings.lang).catch(()=>{}); });
+window.addEventListener('offline',()=>{
+  netState();
+  const ready=$('netChip').dataset.ready==='1';
+  log(ready?'info':'warn', ready?'Sin internet: no pasa nada, todo lo necesario está en tu equipo.':'Sin internet: falta descargar algo una sola vez (motor o idioma).');
+  toast(ready?'Sin internet · la app sigue funcionando':'Sin internet · falta descargar el motor o el idioma', ready?'info':'warn');
+});
+
+/* ════════════════════════ MODO SIN CONEXIÓN DEL NAVEGADOR (service worker) ════════════════════════ */
+function setupOffline(){
+  if(!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+  let wantReload=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(wantReload){ wantReload=false; saveNow(); location.reload(); } });
+  navigator.serviceWorker.addEventListener('message',e=>{
+    const d=e.data||{};
+    if(d.type==='cached') log('info',`Guardado para uso sin internet: ${d.what}`);
+  });
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    const watch=nw=>{
+      if(!nw) return;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state!=='installed') return;
+        if(navigator.serviceWorker.controller){
+          log('sys','Hay una versión nueva de LUMEN OCR lista para usar.');
+          toast('Hay una versión nueva de LUMEN OCR','info',{label:'Actualizar',run:()=>{ wantReload=true; nw.postMessage({type:'skipWaiting'}); }});
+        }else log('ok','Modo sin conexión activado: la app quedó guardada en este equipo.');
+      });
+    };
+    if(reg.waiting && navigator.serviceWorker.controller){
+      toast('Hay una versión nueva de LUMEN OCR','info',{label:'Actualizar',run:()=>{ wantReload=true; reg.waiting.postMessage({type:'skipWaiting'}); }});
+    }
+    reg.addEventListener('updatefound',()=>watch(reg.installing));
+    setInterval(()=>reg.update().catch(()=>{}),60*60*1000);
+  }).catch(e=>log('warn','No se pudo activar la copia sin conexión del navegador: '+e.message));
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+}
+
+/* ════════════════════════ ATAJOS ════════════════════════ */
+document.addEventListener('keydown',e=>{
+  const mod=e.ctrlKey||e.metaKey, k=e.key.toLowerCase();
+  if(mod && e.key==='Enter'){ e.preventDefault(); if(!running) runQueue(true); }
+  else if(mod && k==='s' && !e.shiftKey){ e.preventDefault(); download('txt'); }
+  else if(mod && k==='o'){ e.preventDefault(); $('fileInput').click(); }
+  else if(mod && k==='f' && (editor.contains(document.activeElement)||document.activeElement===editor||!$('findBar').hidden)){ e.preventDefault(); openFind(); }
+  else if(e.key==='Escape'){
+    closeMenus();
+    const open=[...document.querySelectorAll('.overlay')].find(o=>!o.hidden);
+    if(open) closeModal(open.id); else if(!$('findBar').hidden) $('findBar').hidden=true;
+  }
+});
+
+/* ════════════════════════ ARRANQUE ════════════════════════ */
+(function boot(){
+  log('sys',`LUMEN OCR v${VERSION} iniciado — todo se procesa en este equipo, nada se sube a internet.`);
+  netState();
+  const saved=store.get('doc',null);
+  if(saved && saved.html){
+    editor.innerHTML=sanitize(saved.html);
+    if(saved.title) $('docTitle').value=saved.title;
+    const when=new Date(saved.ts||Date.now()).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});
+    log('info',`Documento recuperado de la última sesión (${when}).`);
+    setSave('saved','Recuperado de la sesión anterior');
+    toast('Se recuperó tu documento anterior','info',{label:'Descartar',run:()=>{ editor.innerHTML=''; store.del('doc'); updateCounts(); setSave('saved','Todo se procesa en tu equipo'); }});
+  }
+  updateCounts(); updateStats(); summary(); setRunBtn(false);
+  setupOffline();
+  detectEnv().finally(()=>{
+    if(ENV.fileProto){ setEngine('error','Abre con «Abrir LUMEN OCR.bat»'); return; }
+    setTimeout(()=>getWorker(settings.lang).catch(()=>{}),300);   // precarga el motor (y descarga lo que falte, avisando)
+  });
+})();
+</script>
+</body>
+</html>

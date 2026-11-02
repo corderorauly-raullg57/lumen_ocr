@@ -6,6 +6,12 @@
 <title>LUMEN OCR — Estudio de extracción de texto</title>
 <meta name="description" content="LUMEN OCR: extrae texto de fotos y PDF directamente en tu navegador. Edita, corrige y exporta a TXT, Word, HTML o PDF.">
 <meta name="theme-color" content="#0e1013">
+<meta property="og:type" content="website">
+<meta property="og:title" content="LUMEN OCR — fotos y PDF a texto, gratis y sin internet">
+<meta property="og:description" content="Convierte fotos, capturas y PDF en texto editable estilo Word. 100 % privado, sin registro y sin internet. Una herramienta gratuita de Herramix.">
+<meta property="og:image" content="https://corderorauly-raullg57.github.io/lumen_ocr/banner-lumen.jpg">
+<meta property="og:url" content="https://corderorauly-raullg57.github.io/lumen_ocr/">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2315181d'/%3E%3Cpath d='M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4' stroke='%23ffb224' stroke-width='2' fill='none'/%3E%3Crect x='7' y='11' width='10' height='2' fill='%23ffb224'/%3E%3C/svg%3E">
 <script>
 /* aplica el tema antes de pintar para evitar parpadeos */
@@ -337,6 +343,17 @@ kbd{font-family:var(--font-mono);font-size:10.5px;background:var(--panel-3);bord
 
 footer.credit{text-align:center;font-size:11.5px;color:var(--text-3);padding:0 20px 26px;letter-spacing:.03em}
 footer.credit b{color:var(--text-2)}
+footer.credit a{color:var(--accent);text-decoration:none;font-weight:700}
+footer.credit a:hover{text-decoration:underline}
+.hx-link{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);
+  color:var(--text-2);font-size:12.5px;font-weight:700;text-decoration:none;white-space:nowrap;transition:all .15s}
+.hx-link:hover{color:var(--text);border-color:var(--accent-line);background:var(--accent-soft)}
+.hx-link svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hx-link.wa{color:#25d366}
+.hx-box{margin-top:18px;padding:14px 16px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--accent-line);font-size:13px;line-height:1.55;color:var(--text-2)}
+.hx-box b{color:var(--text)}
+.hx-box .hx-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media (max-width:980px){.hx-link span{display:none}.hx-link{padding:0 10px}}
 
 /* ════════════════════════ CAPAS ════════════════════════ */
 .drop-overlay{position:fixed;inset:12px;z-index:70;border:3px dashed var(--accent);border-radius:20px;pointer-events:none;
@@ -406,6 +423,8 @@ body.dragging .drop-overlay{display:grid;animation:fade .15s ease}
     </span>
   </div>
   <div class="top-right">
+    <a class="hx-link" id="lnkWin" href="https://corderorauly-raullg57.github.io/lumen_ocr/LUMEN-OCR-v3.1-offline.zip" hidden title="Descarga LUMEN OCR para Windows y úsala sin internet"><svg viewBox="0 0 24 24"><path d="M12 3v10m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Versión Windows</span></a>
+    <a class="hx-link" href="https://corderorauly-raullg57.github.io/Herramix/" target="_blank" rel="noopener" title="Más herramientas gratis y de pago en Herramix"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Más herramientas</span></a>
     <span class="chip net" id="netChip" data-on="1" data-ready="0" title="Estado de la conexión y del modo sin internet"><i class="dot"></i><span id="netTxt">Comprobando…</span></span>
     <button class="icon-btn" id="btnTheme" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema"></button>
     <button class="icon-btn" id="btnHelp" title="Ayuda y atajos" aria-label="Ayuda" data-icon="help"></button>
@@ -601,7 +620,7 @@ body.dragging .drop-overlay{display:grid;animation:fade .15s ease}
   </div>
 </section>
 
-<footer class="credit"><b>LUMEN OCR</b> · Reconocimiento de texto 100 % local y sin internet — Tesseract OCR (Apache 2.0) y PDF.js (Apache 2.0)</footer>
+<footer class="credit"><b>LUMEN OCR</b> · gratis y 100 % local · una herramienta de <a href="https://corderorauly-raullg57.github.io/Herramix/" target="_blank" rel="noopener">Herramix</a> · soporte por <a href="https://wa.me/5355081288?text=Hola%20Ra%C3%BAl%2C%20uso%20LUMEN%20OCR%20y%20tengo%20una%20consulta." target="_blank" rel="noopener">WhatsApp</a><br>Tesseract OCR y PDF.js (Apache 2.0)</footer>
 
 <div class="drop-overlay" aria-hidden="true"><div>Suelta para añadir a la cola<small>Imágenes y PDF</small></div></div>
 <div id="toasts" aria-live="polite"></div>
@@ -654,8 +673,16 @@ body.dragging .drop-overlay{display:grid;animation:fade .15s ease}
         <li>Los PDF que ya traen texto se extraen al instante y sin errores.</li>
         <li>El documento se guarda solo en este navegador: si se va la corriente, lo recuperas al volver a abrir.</li>
         <li>Español e inglés vienen incluidos y funcionan sin internet. Si eliges otro idioma, la app lo descarga sola una única vez (1–3 MB), te avisa y lo guarda en su carpeta.</li>
-        <li>Abre siempre la app con <b>Abrir LUMEN OCR.bat</b>. La ventanita minimizada que aparece es el servidor local: déjala abierta mientras trabajas.</li>
+        <li id="tipBat">Abre siempre la app con <b>Abrir LUMEN OCR.bat</b>. La ventanita minimizada que aparece es el servidor local: déjala abierta mientras trabajas.</li>
       </ul>
+      <div class="hx-box">
+        <b>LUMEN OCR es gratis</b> y forma parte de <b>Herramix</b>, un catálogo de herramientas para creadores, oficinas y negocios.
+        ¿También necesitas pasar <b>audios y grabaciones a texto</b>? Prueba <b>AudioScribe Pro</b> 3 días gratis.
+        <div class="hx-row">
+          <a class="hx-link" href="https://corderorauly-raullg57.github.io/Herramix/" target="_blank" rel="noopener"><span>Ver Herramix</span></a>
+          <a class="hx-link wa" href="https://wa.me/5355081288?text=Hola%20Ra%C3%BAl%2C%20uso%20LUMEN%20OCR%20y%20tengo%20una%20consulta." target="_blank" rel="noopener"><span>Soporte por WhatsApp</span></a>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -699,7 +726,7 @@ const LANG_INFO = {
 const langName = c => c.split('+').map(x=>(LANG_INFO[x]||[x])[0]).join(' + ');
 const langMB = c => (LANG_INFO[c]||[c,'?'])[1];
 const abs = u => new URL(u,location.href).href;
-const VERSION = '3.1';
+const VERSION = '3.1.1';
 const BASE_TITLE = 'LUMEN OCR — Estudio de extracción de texto';
 
 /* ════════════════════════ ICONOS ════════════════════════ */
@@ -937,6 +964,8 @@ async function detectEnv(){
     }
   }catch{}
   if(!ENV.server){
+    $('lnkWin').hidden=false;
+    $('tipBat').hidden=true;
     ENV.localEngine=await fileExists(CONFIG.local.tesseract);
     const found=new Set();
     for(const c of CONFIG.bundledLangs) if(await fileExists(CONFIG.local.lang+c+'.traineddata.gz')) found.add(c);
@@ -1784,6 +1813,11 @@ function download(fmt){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),5000);
   toast(`Descargado ${base}.${fmt}`); log('ok',`Documento descargado como .${fmt}`);
+  if(!store.get('hxTip',false)){
+    store.set('hxTip',true);
+    setTimeout(()=>toast('¿Te sirvió LUMEN? Descubre más herramientas, como AudioScribe Pro (audios a texto).','info',
+      {label:'Ver Herramix',run:()=>window.open('https://corderorauly-raullg57.github.io/Herramix/','_blank','noopener')}),1800);
+  }
 }
 async function shareText(){
   const t=docText(true);

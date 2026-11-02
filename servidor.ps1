@@ -58,6 +58,55 @@ function Idiomas-Instalados {
            ForEach-Object { $_.Name -replace '\.traineddata\.gz$', '' })
 }
 
+# Descarga un archivo con paciencia para conexiones lentas:
+# sin límite de tiempo total, 2 min sin recibir datos = corte, y si se corta
+# reanuda desde donde iba (hasta 6 intentos por fuente).
+function Bajar-Con-Reanudar([string]$url, [string]$tmp) {
+  for ($intento = 1; $intento -le 6; $intento++) {
+    $desde = 0
+    if (Test-Path -LiteralPath $tmp) { $desde = (Get-Item -LiteralPath $tmp).Length }
+    $resp = $null; $ent = $null; $sal = $null
+    try {
+      $req = [Net.HttpWebRequest]::Create($url)
+      $req.UserAgent = "LUMEN-OCR/$VERSION"
+      $req.Timeout = 60000
+      $req.ReadWriteTimeout = 120000
+      $req.AllowAutoRedirect = $true
+      if ($desde -gt 0) { $req.AddRange([long]$desde) }
+      $resp = $req.GetResponse()
+      $codigo = [int]$resp.StatusCode
+      if ($desde -gt 0 -and $codigo -ne 206) { $desde = 0 }      # el servidor no admite reanudar: empezamos de cero
+      $total = $resp.ContentLength + $desde
+      $modo = if ($desde -gt 0) { [IO.FileMode]::Append } else { [IO.FileMode]::Create }
+      $sal = New-Object IO.FileStream($tmp, $modo, [IO.FileAccess]::Write)
+      $ent = $resp.GetResponseStream()
+      $buf = New-Object byte[] 65536
+      $hecho = $desde; $ultimo = [DateTime]::UtcNow
+      while (($n = $ent.Read($buf, 0, $buf.Length)) -gt 0) {
+        $sal.Write($buf, 0, $n); $hecho += $n
+        if (([DateTime]::UtcNow - $ultimo).TotalSeconds -ge 5 -and $total -gt 0) {
+          Escribir ("   {0:N1} de {1:N1} MB ({2:N0} %)" -f ($hecho / 1MB), ($total / 1MB), (100 * $hecho / $total)) 'DarkGray'
+          $ultimo = [DateTime]::UtcNow
+        }
+      }
+      $sal.Close(); $sal = $null
+      if ($total -gt 0 -and (Get-Item -LiteralPath $tmp).Length -lt $total) { throw 'descarga incompleta' }
+      return $true
+    } catch {
+      $msg = $_.Exception.Message
+      if ($msg -match '\(404\)|\(403\)') { throw }                # no existe en esta fuente: probar otra
+      if (-not $resp -and $intento -ge 2) { throw }               # no se puede ni conectar: probar otra fuente
+      Escribir "   corte de conexión (intento $intento de 6): $msg" 'Yellow'
+      Start-Sleep -Seconds ([Math]::Min(30, 3 * $intento))
+    } finally {
+      if ($sal) { $sal.Close() }
+      if ($ent) { $ent.Close() }
+      if ($resp) { $resp.Close() }
+    }
+  }
+  throw 'la conexión se cortó demasiadas veces'
+}
+
 # Descarga probando varias fuentes; valida el archivo y lo coloca de forma atómica.
 function Descargar([string[]]$urls, [string]$destino, [int]$primerByte = -1) {
   $tmp = "$destino.descargando"
@@ -66,10 +115,7 @@ function Descargar([string[]]$urls, [string]$destino, [int]$primerByte = -1) {
   foreach ($u in $urls) {
     try {
       Escribir "   descargando $u" 'DarkGray'
-      $wc = New-Object Net.WebClient
-      $wc.Headers.Add('User-Agent', "LUMEN-OCR/$VERSION")
-      $wc.DownloadFile($u, $tmp)
-      $wc.Dispose()
+      [void](Bajar-Con-Reanudar $u $tmp)
       $len = (Get-Item -LiteralPath $tmp).Length
       if ($len -lt 10000) { throw "archivo demasiado pequeño ($len bytes)" }
       $fs = [IO.File]::OpenRead($tmp); $b = $fs.ReadByte(); $fs.Close()

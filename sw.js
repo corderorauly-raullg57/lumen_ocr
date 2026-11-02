@@ -1,7 +1,7 @@
 /* LUMEN OCR — copia sin conexión (service worker)
    Guarda la app y sus librerías en el navegador para que funcione aunque
    no haya internet ni servidor. Cambia VERSION al publicar una actualización. */
-const VERSION = 'lumen-ocr-3.1.1';
+const VERSION = 'lumen-ocr-3.1.2';
 const SHELL_CACHE = VERSION;
 const RUNTIME_CACHE = 'lumen-ocr-recursos';   // se conserva entre versiones (motor, idiomas descargados…)
 

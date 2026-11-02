@@ -697,7 +697,7 @@ const CONFIG = {
   local: {
     tesseract:'lib/tesseract/tesseract.min.js', worker:'lib/tesseract/worker.min.js', core:'lib/tesseract/',
     lang:'lib/lang/',
-    pdf:'lib/pdfjs/pdf.js', pdfWorker:'lib/pdfjs/pdf.worker.js', cmaps:'lib/pdfjs/cmaps/', fonts:'lib/pdfjs/standard_fonts/'
+    pdf:'lib/pdfjs/pdf.js', pdfWorker:'lib/pdfjs/pdf.worker.js', cmaps:'lib/pdfjs/cmaps.json', fonts:'lib/pdfjs/standard_fonts/'
   },
   cdn: {
     tesseract:['https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5.1.1/dist/tesseract.min.js'],
@@ -1119,7 +1119,24 @@ async function resetWorker(){
 $('engineRetry').onclick=e=>{ e.stopPropagation(); getWorker(settings.lang).then(()=>{ if(hasPending()&&settings.autoRun) runQueue(); }).catch(()=>{}); };
 
 /* ════════════════════════ PDF.JS ════════════════════════ */
-let pdfjsP=null, pdfAssets={cmaps:null,fonts:null};
+let pdfjsP=null, pdfAssets={cmaps:null,fonts:null,packed:false};
+/* Las tablas de caracteres (chino, japonés, coreano) van todas juntas en un solo
+   archivo (cmaps.json) para no tener 169 archivos sueltos. Se cargan solo si un PDF las necesita. */
+let cmapPackP=null;
+class PackedCMapReader{
+  constructor({baseUrl}){ this.url=baseUrl; }
+  async fetch({name}){
+    if(!cmapPackP){
+      cmapPackP=fetch(this.url).then(r=>{ if(!r.ok) throw new Error('no se encontró cmaps.json'); return r.json(); });
+      cmapPackP.catch(()=>{ cmapPackP=null; });
+    }
+    const b64=(await cmapPackP)[name];
+    if(!b64) throw new Error('Tabla de caracteres no disponible: '+name);
+    const bin=atob(b64), data=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) data[i]=bin.charCodeAt(i);
+    return {cMapData:data, compressionType:1};
+  }
+}
 function getPdfJs(){
   if(window.pdfjsLib && window.pdfjsLib.__ready) return Promise.resolve(window.pdfjsLib);
   if(!pdfjsP){
@@ -1132,7 +1149,7 @@ function getPdfJs(){
           if(!window.pdfjsLib) await loadScript(abs(s.lib));
           if(window.pdfjsLib){
             window.pdfjsLib.GlobalWorkerOptions.workerSrc=abs(s.worker); window.pdfjsLib.__ready=true;
-            pdfAssets={cmaps:abs(s.cmaps),fonts:abs(s.fonts)};
+            pdfAssets={cmaps:abs(s.cmaps),fonts:abs(s.fonts),packed:s.local};
             log('info', s.local?'Lector de PDF cargado desde la carpeta de la app.':`Lector de PDF descargado de ${hostOf(s.lib)}.`);
             return window.pdfjsLib;
           }
@@ -1318,7 +1335,7 @@ async function addImageFile(file,g){
 async function addPdfFile(file,g){
   try{
     const pdf=await getPdfJs();
-    const task=pdf.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,cMapUrl:pdfAssets.cmaps,cMapPacked:true,standardFontDataUrl:pdfAssets.fonts});
+    const task=pdf.getDocument(Object.assign({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,cMapUrl:pdfAssets.cmaps,cMapPacked:true,standardFontDataUrl:pdfAssets.fonts},pdfAssets.packed?{CMapReaderFactory:PackedCMapReader}:{}));
     task.onPassword=(update,reason)=>{
       const pw=prompt(reason===2?'Contraseña incorrecta. Inténtalo de nuevo:':`«${file.name}» está protegido. Escribe la contraseña:`);
       if(pw===null) task.destroy(); else update(pw);
